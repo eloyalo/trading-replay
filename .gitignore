@@ -1,0 +1,12 @@
+# Notas locales de Claude Code (datos del equipo del usuario)
+CLAUDE.local.md
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Histórico descargado y bases de datos locales
+datos/
+*.sqlite
+*.duckdb

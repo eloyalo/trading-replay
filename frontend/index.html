@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trading Replay</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="barra">
+    <span class="titulo">Trading Replay</span>
+    <nav id="simbolos" class="grupo" aria-label="Instrumento"></nav>
+    <nav id="timeframes" class="grupo" aria-label="Timeframe"></nav>
+    <span id="info" class="info"></span>
+    <span id="estado" class="estado estado--comprobando">Comprobando backend…</span>
+  </header>
+  <main id="grafico" class="grafico"></main>
+
+  <script src="vendor/lightweight-charts.standalone.production.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
