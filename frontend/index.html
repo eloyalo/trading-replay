@@ -11,12 +11,163 @@
     <span class="titulo">Trading Replay</span>
     <nav id="simbolos" class="grupo" aria-label="Instrumento"></nav>
     <nav id="timeframes" class="grupo" aria-label="Timeframe"></nav>
+    <div class="grupo desplegable">
+      <button id="boton-indicadores" aria-pressed="false" aria-controls="panel-indicadores">Indicadores</button>
+      <div id="panel-indicadores" class="panel" hidden></div>
+    </div>
+    <div class="grupo">
+      <button id="boton-resumen-cuentas" title="Cómo van tus cuentas y tus retos">Cuentas</button>
+    </div>
     <span id="info" class="info"></span>
     <span id="estado" class="estado estado--comprobando">Comprobando backend…</span>
   </header>
-  <main id="grafico" class="grafico"></main>
+  <div class="barra barra--replay" aria-label="Replay">
+    <div class="grupo">
+      <button id="aleatorio" title="Saltar a un instante al azar con mercado abierto (R)">Momento aleatorio</button>
+      <select id="sesion" title="Sesión en la que cae el momento aleatorio">
+        <option value="cualquiera">Cualquier sesión</option>
+        <option value="asia">Asia</option>
+        <option value="londres">Londres</option>
+        <option value="nueva_york">Nueva York</option>
+      </select>
+    </div>
+    <div class="grupo">
+      <input id="fecha" type="datetime-local" title="Fecha y hora de inicio (hora de Nueva York)">
+      <button id="ir">Ir a fecha</button>
+    </div>
+    <div class="grupo solo-replay">
+      <button id="siguiente" title="Siguiente vela (→)">Siguiente vela</button>
+      <button id="play" title="Play/pausa (Espacio)">▶ Play</button>
+      <select id="velocidad" title="Velocidad"></select>
+      <select id="modo" title="Movimiento del precio dentro de cada minuto"></select>
+    </div>
+    <label class="casilla"><input id="ciego" type="checkbox"> Ocultar fecha</label>
+    <span id="reloj" class="reloj solo-replay" title="Instante del replay (hora de Nueva York)"></span>
+    <span id="aviso" class="aviso"></span>
+    <div class="grupo solo-replay">
+      <button id="boton-operar" aria-pressed="true" aria-controls="operar" title="Mostrar u ocultar el panel de operar">Operar</button>
+      <button id="salir" title="Volver al gráfico normal (Esc)">Salir del replay</button>
+    </div>
+  </div>
+  <div class="cuerpo">
+    <nav id="herramientas" class="herramientas" aria-label="Herramientas de dibujo">
+      <button data-herramienta="" title="Cursor (Esc)" aria-label="Cursor">
+        <svg viewBox="0 0 20 20"><path d="M5 3l10 7-4.5 1 2.5 5-2 1-2.5-5L5 15z"/></svg>
+      </button>
+      <button data-herramienta="horizontal" title="Línea horizontal (H)" aria-label="Línea horizontal">
+        <svg viewBox="0 0 20 20"><path d="M2 10h16"/><circle cx="10" cy="10" r="2"/></svg>
+      </button>
+      <button data-herramienta="tendencia" title="Línea de tendencia (T)" aria-label="Línea de tendencia">
+        <svg viewBox="0 0 20 20"><path d="M4 16L16 4"/><circle cx="4" cy="16" r="2"/><circle cx="16" cy="4" r="2"/></svg>
+      </button>
+      <button data-herramienta="rectangulo" title="Rectángulo (B)" aria-label="Rectángulo">
+        <svg viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="10"/></svg>
+      </button>
+      <span class="separador"></span>
+      <button id="borrar-dibujo" title="Borrar el dibujo seleccionado (Supr)" aria-label="Borrar el dibujo seleccionado">
+        <svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      </button>
+      <button id="borrar-dibujos" title="Borrar todos los dibujos de este instrumento (dos clics)" aria-label="Borrar todos los dibujos">
+        <svg viewBox="0 0 20 20"><path d="M4 6h12M8 6V4h4v2M6 6l1 11h6l1-11"/></svg>
+      </button>
+    </nav>
+    <main id="grafico" class="grafico">
+      <div id="leyenda" class="leyenda"></div>
+    </main>
+    <aside id="operar" class="operar solo-replay" aria-label="Operar">
+      <section class="operar__seccion">
+        <div class="operar__cuenta">
+          <select id="cuenta-activa" title="Cuenta activa"></select>
+          <button id="boton-cuentas" type="button" title="Cuentas y costes" aria-label="Cuentas y costes">
+            <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.3 4.3l2.1 2.1M13.6 13.6l2.1 2.1M4.3 15.7l2.1-2.1M13.6 6.4l2.1-2.1"/></svg>
+          </button>
+        </div>
+        <dl class="cifras">
+          <dt>Balance</dt><dd id="balance">—</dd>
+          <dt>PnL abierto</dt><dd id="pnl-abierto">—</dd>
+          <dt>PnL de este replay</dt><dd id="pnl-sesion">—</dd>
+        </dl>
+      </section>
+      <section id="panel-reto" class="operar__seccion reto" hidden></section>
+      <section id="ajustes-cuenta" class="operar__seccion ajustes" hidden>
+        <h3>Cuenta activa</h3>
+        <div class="campos">
+          <label>Nombre <input id="nombre-cuenta" type="text" maxlength="60"></label>
+        </div>
+        <div class="botones">
+          <button id="renombrar-cuenta" type="button">Renombrar</button>
+          <button id="reiniciar-cuenta" type="button" title="Vuelve al balance inicial y borra el historial">Reiniciar</button>
+          <button id="borrar-cuenta" type="button" title="Elimina la cuenta y su historial">Borrar</button>
+        </div>
+        <h3>Nueva cuenta</h3>
+        <label class="tipo-cuenta">Tipo <select id="nueva-tipo"><option value="">Libre</option></select></label>
+        <div class="campos">
+          <label>Nombre <input id="nueva-nombre" type="text" maxlength="60" placeholder="Reto 50k"></label>
+          <label>Balance inicial ($) <input id="nueva-balance" type="number" min="1" step="1000" value="50000"></label>
+        </div>
+        <button id="crear-cuenta" type="button">Crear y usar</button>
+        <h3>Costes de la cuenta activa</h3>
+        <div class="campos">
+          <label>Spread (ticks) <input id="coste-spread_ticks" type="number" min="0" max="20" step="1"></label>
+          <label>Deslizamiento (ticks) <input id="coste-deslizamiento_ticks" type="number" min="0" max="20" step="1"></label>
+          <label>Comisión mini ($/lado) <input id="coste-comision_mini" type="number" min="0" step="0.01"></label>
+          <label>Comisión micro ($/lado) <input id="coste-comision_micro" type="number" min="0" step="0.01"></label>
+        </div>
+        <button id="guardar-costes" type="button">Guardar costes</button>
+        <p class="nota">Solo sin posiciones ni órdenes abiertas.</p>
+      </section>
+      <section id="boleta" class="operar__seccion boleta">
+        <div class="segmentado lados" id="lados" aria-label="Lado"></div>
+        <div class="segmentado" id="contratos" aria-label="Contrato"></div>
+        <div class="segmentado" id="tipos" aria-label="Tipo de orden"></div>
+        <div class="campos">
+          <label>Cantidad <input id="cantidad" type="number" min="1" max="50" step="1" value="1"></label>
+          <label>Precio <input id="precio" type="number" min="0" placeholder="a mercado"></label>
+        </div>
+        <div class="sl-tp">
+          <span>SL y TP en</span>
+          <div class="segmentado unidades" id="unidades" aria-label="Unidad del SL y el TP"></div>
+        </div>
+        <div class="campos">
+          <label>SL <input id="sl" type="number" min="0" step="any" placeholder="sin SL"><small id="sl-equivale" class="equivale"></small></label>
+          <label>TP <input id="tp" type="number" min="0" step="any" placeholder="sin TP"><small id="tp-equivale" class="equivale"></small></label>
+        </div>
+        <button id="confirmar" type="button" class="confirmar comprar">Comprar</button>
+      </section>
+      <section class="operar__seccion">
+        <h3>Posiciones</h3>
+        <ul id="posiciones" class="lista"></ul>
+        <h3>Órdenes pendientes</h3>
+        <ul id="ordenes" class="lista"></ul>
+        <button id="cerrar-todo" type="button" class="cerrar-todo">Cerrar todo</button>
+      </section>
+      <section class="operar__seccion">
+        <h3>Últimas operaciones</h3>
+        <ul id="historial" class="lista"></ul>
+      </section>
+    </aside>
+  </div>
 
   <script src="vendor/lightweight-charts.standalone.production.js"></script>
+  <script src="calculos.js"></script>
   <script src="app.js"></script>
+  <script src="indicadores.js"></script>
+  <script src="dibujo.js"></script>
+  <script src="operativa.js"></script>
+  <script src="replay.js"></script>
+  <script src="retos.js"></script>
+
+  <dialog id="ventana-reto" class="ventana">
+    <canvas id="confeti" class="confeti" aria-hidden="true"></canvas>
+    <div id="ventana-reto-contenido"></div>
+  </dialog>
+  <dialog id="ventana-cuentas" class="ventana ventana--ancha" aria-labelledby="titulo-cuentas">
+    <header class="ventana__cabecera">
+      <h2 id="titulo-cuentas">Tus cuentas</h2>
+      <button type="button" class="ventana__cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </header>
+    <p id="cuentas-aviso" class="aviso aviso--error"></p>
+    <div id="tarjetas-cuentas" class="tarjetas"></div>
+  </dialog>
 </body>
 </html>

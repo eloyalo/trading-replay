@@ -1,0 +1,195 @@
+{
+  "empresa": "DayTraders",
+  "revisado": "2026-10-16",
+  "fuentes": [
+    "https://daytraders.com/help/articles/10131750-evaluation-account-sizes-fees-and-details",
+    "https://daytraders.com/help/articles/14473672-eod-account-rules",
+    "https://daytraders.com/help/articles/9855052-drawdown-threshold-guide-trailing-static-eod",
+    "https://daytraders.com/how-futures-funding-evaluations-work"
+  ],
+  "notas": "Sin confirmar: el beneficio mínimo de un día válido de las Trail y las Static (se usa el de la EOD del mismo tamaño; la Static 100K, el de 50K), el tope del trailing de las EOD (se usa el de las Trail) y si hay hora de cierre obligatoria.",
+  "cuentas": [
+    {
+      "id": "daytraders-trail-25k",
+      "nombre": "Trail 25K",
+      "balance_inicial": 25000,
+      "objetivo": 1500,
+      "perdida_maxima": {
+        "importe": 1500,
+        "tipo": "trailing_intradia",
+        "tope": "objetivo"
+      },
+      "limite_diario": null,
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 100,
+      "contratos_maximos": 6,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-trail-50k",
+      "nombre": "Trail 50K",
+      "balance_inicial": 50000,
+      "objetivo": 3000,
+      "perdida_maxima": {
+        "importe": 2500,
+        "tipo": "trailing_intradia",
+        "tope": "objetivo"
+      },
+      "limite_diario": null,
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 200,
+      "contratos_maximos": 10,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-eod-25k",
+      "nombre": "EOD 25K",
+      "balance_inicial": 25000,
+      "objetivo": 1500,
+      "perdida_maxima": {
+        "importe": 1000,
+        "tipo": "trailing_cierre",
+        "tope": "objetivo"
+      },
+      "limite_diario": {
+        "importe": 800,
+        "efecto": "pausa"
+      },
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 100,
+      "contratos_maximos": 6,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-eod-50k",
+      "nombre": "EOD 50K",
+      "balance_inicial": 50000,
+      "objetivo": 3000,
+      "perdida_maxima": {
+        "importe": 2000,
+        "tipo": "trailing_cierre",
+        "tope": "objetivo"
+      },
+      "limite_diario": {
+        "importe": 1250,
+        "efecto": "pausa"
+      },
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 200,
+      "contratos_maximos": 10,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-eod-150k",
+      "nombre": "EOD 150K",
+      "balance_inicial": 150000,
+      "objetivo": 8500,
+      "perdida_maxima": {
+        "importe": 4000,
+        "tipo": "trailing_cierre",
+        "tope": "objetivo"
+      },
+      "limite_diario": {
+        "importe": 2000,
+        "efecto": "pausa"
+      },
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 300,
+      "contratos_maximos": 12,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-eod-300k",
+      "nombre": "EOD 300K",
+      "balance_inicial": 300000,
+      "objetivo": 15000,
+      "perdida_maxima": {
+        "importe": 6500,
+        "tipo": "trailing_cierre",
+        "tope": "objetivo"
+      },
+      "limite_diario": {
+        "importe": 3250,
+        "efecto": "pausa"
+      },
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 400,
+      "contratos_maximos": 40,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-static-25k",
+      "nombre": "Static 25K",
+      "balance_inicial": 25000,
+      "objetivo": 2500,
+      "perdida_maxima": {
+        "importe": 750,
+        "tipo": "estatica",
+        "tope": null
+      },
+      "limite_diario": null,
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 100,
+      "contratos_maximos": 4,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-static-50k",
+      "nombre": "Static 50K",
+      "balance_inicial": 50000,
+      "objetivo": 3750,
+      "perdida_maxima": {
+        "importe": 1000,
+        "tipo": "estatica",
+        "tope": null
+      },
+      "limite_diario": null,
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 200,
+      "contratos_maximos": 6,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-static-100k",
+      "nombre": "Static 100K",
+      "balance_inicial": 100000,
+      "objetivo": 5750,
+      "perdida_maxima": {
+        "importe": 1500,
+        "tipo": "estatica",
+        "tope": null
+      },
+      "limite_diario": null,
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 200,
+      "contratos_maximos": 8,
+      "hora_cierre": null
+    },
+    {
+      "id": "daytraders-static-150k",
+      "nombre": "Static 150K",
+      "balance_inicial": 150000,
+      "objetivo": 6750,
+      "perdida_maxima": {
+        "importe": 1750,
+        "tipo": "estatica",
+        "tope": null
+      },
+      "limite_diario": null,
+      "consistencia": 0.5,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": 300,
+      "contratos_maximos": 8,
+      "hora_cierre": null
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # 003 · Replay
 
-- **Estado:** Aprobada (2026-10-15, con las respuestas del usuario a las dudas)
+- **Estado:** Hecha (2026-10-16; aprobada el 2026-10-15)
 - **Fase:** 2
 - **Creada:** 2026-10-15 · **Actualizada:** 2026-10-15
 
@@ -78,14 +78,14 @@ Para practicar hay que ver el mercado como si fuera en vivo: situarse en un mome
 
 ## Criterios de aceptación
 
-- [ ] Con un replay en marcha, ninguna petición de la API devuelve una vela posterior al instante actual (comprobado con un test).
-- [ ] En 1h, a las 10:37, la última vela coincide con la agregación manual de los minutos de 10:00 a 10:36.
-- [ ] Cambiar de 1m a 1h y volver durante el replay no muestra ninguna vela futura.
-- [ ] El momento aleatorio cae siempre en un minuto con datos, dentro de la sesión pedida, y nunca en el primer mes ni en la última semana (test con muchas repeticiones).
-- [ ] En modo a ciegas no aparece la fecha en ningún sitio de la pantalla.
-- [ ] El play a 1000x se ve fluido, sin parpadeos ni saltos del gráfico.
-- [ ] Con el reloj un viernes a las 16:14 ET, "siguiente vela" en 1m salta al domingo a las 18:00.
-- [ ] En modo simulado, al terminar cada minuto la vela coincide exactamente con la real.
+- [x] Con un replay en marcha, ninguna petición de la API devuelve una vela posterior al instante actual (comprobado con un test).
+- [x] En 1h, a las 10:37, la última vela coincide con la agregación manual de los minutos de 10:00 a 10:36.
+- [x] Cambiar de 1m a 1h y volver durante el replay no muestra ninguna vela futura.
+- [x] El momento aleatorio cae siempre en un minuto con datos, dentro de la sesión pedida, y nunca en el primer mes ni en la última semana (test con muchas repeticiones).
+- [x] En modo a ciegas no aparece la fecha en ningún sitio de la pantalla.
+- [x] El play a 1000x se ve fluido, sin parpadeos ni saltos del gráfico.
+- [x] Con el reloj un viernes a las 16:14 ET, "siguiente vela" en 1m salta al domingo a las 18:00.
+- [x] En modo simulado, al terminar cada minuto la vela coincide exactamente con la real.
 
 ## Dudas resueltas (2026-10-15)
 

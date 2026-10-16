@@ -6,9 +6,9 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 |------|--------|--------|
 | 0 | Preparación y stack | Hecha |
 | 1 | Datos históricos | Hecha |
-| 2 | Gráfico y replay | En curso |
-| 3 | Órdenes y cuenta simulada | Pendiente |
-| 4 | Simulador de prop firm | Pendiente |
+| 2 | Gráfico y replay | Hecha |
+| 3 | Órdenes y cuenta simulada | Hecha |
+| 4 | Simulador de prop firm | Implementada, en revisión |
 | 5 | Diario y estadísticas | Pendiente |
 | 6 | Backtest automático de estrategias (opcional) | Pendiente |
 | 7 | Pulido | Pendiente |
@@ -52,14 +52,14 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 - **Modo tiempo real:** el replay avanza a velocidad 1x, minuto a minuto como en vivo, para practicar la toma de decisiones con presión de tiempo.
 - Cambiar de timeframe durante el replay **sin ver el futuro**: la vela en formación se construye a partir de 1m hasta el instante actual.
 - Movimiento dentro del minuto a elegir: real (saltos de 1m) o simulado (spec 003, RF-9).
-- Herramientas de dibujo (líneas horizontales, de tendencia y rectángulos) e **indicadores**, en la spec 004. Falta decidir con el usuario qué indicadores (candidatos típicos: EMA/SMA, VWAP, RSI, ATR, volumen, niveles de la sesión anterior).
+- Herramientas de dibujo (líneas horizontales, de tendencia y rectángulos) e **indicadores** (EMA/SMA, VWAP, volumen, RSI, ATR, niveles del día anterior y overnight), en la spec 004.
 
 **Hecho cuando:** se puede hacer replay de una sesión completa cambiando entre 1m y 1h sin que aparezca ningún dato posterior al instante del replay, y se puede dibujar y añadir indicadores.
 
 | Spec | Contenido | Estado |
 |---|---|---|
-| 003 | Replay (reloj, momento aleatorio, velocidades, real/simulado, modo a ciegas) | Aprobada, sin empezar |
-| 004 | Herramientas de dibujo e indicadores | Por escribir |
+| 003 | Replay (reloj, momento aleatorio, velocidades, real/simulado, modo a ciegas) | Hecha |
+| 004 | Herramientas de dibujo e indicadores | Hecha |
 
 ## Fase 3 · Órdenes y cuenta simulada
 
@@ -77,6 +77,10 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 
 **Hecho cuando:** un trade manual con SL/TP se ejecuta y liquida igual que lo calcularíamos a mano, comisiones incluidas, y el resultado se refleja en el balance de la cartera.
 
+| Spec | Contenido | Estado |
+|---|---|---|
+| 005 | Órdenes y cuenta simulada | Hecha |
+
 ## Fase 4 · Simulador de prop firm
 
 **Objetivo:** comprobar si se pasaría un reto de prop firm real.
@@ -90,9 +94,13 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 - Primeros perfiles: **Topstep** y **DayTraders**. Se revisarán sus reglas vigentes al empezar la fase, porque cambian a menudo.
 - Estado del reto en tiempo real: en curso, aprobado o suspendido, con el motivo.
 - Varias cuentas o retos en paralelo e historial de intentos.
-- **Pendiente de decidir en la spec:** cómo encaja un reto con los saltos a momentos aleatorios. Las reglas diarias (límite diario, días mínimos, consistencia) necesitan un "día de trading". Una opción es que cada salto aleatorio cuente como una sesión o día del reto.
+- **Decidido (2026-10-16):** cada salto a un momento aleatorio (o a una fecha) es un día del reto.
 
 **Hecho cuando:** un reto se marca como suspendido justo en el momento en que se rompe una regla, con el motivo correcto.
+
+| Spec | Contenido | Estado |
+|---|---|---|
+| 006 | Perfiles de reto, cuentas de reto, reglas, intentos y resumen de cuentas | Implementada, en revisión |
 
 ## Fase 5 · Diario y estadísticas
 

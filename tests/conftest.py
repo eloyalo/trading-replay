@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pytest
 
+from trading_replay import replay
 from trading_replay.historico.dukascopy import REGISTRO, ruta_crudo
 
 ET = ZoneInfo("America/New_York")
@@ -45,3 +46,11 @@ def datos(tmp_path, monkeypatch):
 
     anadir.serie = serie
     return anadir
+
+
+@pytest.fixture(autouse=True)
+def sin_replay():
+    """Cada test empieza y acaba sin replay en marcha (la sesión es global)."""
+    replay.terminar()
+    yield
+    replay.terminar()

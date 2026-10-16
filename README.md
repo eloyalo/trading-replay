@@ -3,8 +3,9 @@
 Simulador local de trading para practicar sobre datos históricos de NQ (Nasdaq 100), ES (S&P 500) y GC (oro).
 
 - Replay vela a vela desde cualquier fecha o desde un momento aleatorio, sin ver el futuro.
-- Cuenta demo propia con órdenes, SL/TP, comisiones y slippage.
-- Simulación de retos de prop firm (drawdown, límite diario, objetivo...).
+- Herramientas de dibujo e indicadores (medias, VWAP, volumen, RSI, ATR y niveles del día anterior y overnight).
+- Cuentas demo propias con órdenes, SL/TP, comisiones y slippage, que conservan el balance entre replays.
+- Simulación de retos de prop firm (Topstep y DayTraders): pérdida máxima, límite diario, consistencia, objetivo y días mínimos, aplicados en el momento.
 - Diario de trades y estadísticas por estrategia.
 
 Todo corre en local. Está en desarrollo: el estado de cada fase está en [`docs/FASES.md`](docs/FASES.md).
@@ -23,6 +24,10 @@ uv run trading-replay datos descargar   # descarga ~4 años de histórico (unos 
 ```
 
 Después, abre http://127.0.0.1:8000.
+
+Las cuentas, órdenes y operaciones se guardan en `datos/cuentas.sqlite`. Para empezar de cero, borra ese archivo con el servidor parado.
+
+Las reglas de los retos están en `perfiles/` (un JSON por empresa). Las prop firms cambian sus reglas a menudo: si alguna ya no cuadra, se corrige ese archivo sin tocar el código.
 
 ## Documentación
 

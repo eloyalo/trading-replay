@@ -5,6 +5,7 @@ y el día de trading empieza a las 18:00 ET de la víspera, como en el CME.
 """
 
 import os
+import random
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -92,14 +93,21 @@ def inicio_dia_trading(momento: datetime) -> datetime:
     return datetime.combine(dia, datetime.min.time()) - DESFASE_DIA
 
 
+# Rango de cada Parquet, por (ruta, fecha de modificación): calcularlo cuesta unos 75 ms.
+_rangos: dict[tuple[Path, int], tuple[datetime, datetime]] = {}
+
+
 def rango(simbolo: str) -> tuple[datetime, datetime] | None:
     """Primera y última vela disponibles, en hora ET."""
     ruta = ruta_parquet(simbolo)
     if not ruta.exists():
         return None
-    return conexion().execute(
-        f"SELECT min(timezone('{ZONA_MERCADO}', ts)), max(timezone('{ZONA_MERCADO}', ts)) FROM '{ruta}'"
-    ).fetchone()
+    clave = (ruta, ruta.stat().st_mtime_ns)
+    if clave not in _rangos:
+        _rangos[clave] = conexion().execute(
+            f"SELECT min(timezone('{ZONA_MERCADO}', ts)), max(timezone('{ZONA_MERCADO}', ts)) FROM '{ruta}'"
+        ).fetchone()
+    return _rangos[clave]
 
 
 def consultar(simbolo: str, tf: str, desde: datetime, hasta: datetime) -> list[dict]:
@@ -138,3 +146,38 @@ def consultar(simbolo: str, tf: str, desde: datetime, hasta: datetime) -> list[d
         {"time": t, "open": o, "high": h, "low": l, "close": c, "volume": round(vol, 4)}
         for t, o, h, l, c, vol in filas
     ]
+
+
+def minutos(simbolo: str, desde: datetime, hasta: datetime) -> list[tuple]:
+    """Velas de 1m con inicio en [desde, hasta): (hora ET sin zona, open, high, low, close, volume)."""
+    return conexion().execute(
+        f"""
+        SELECT timezone('{ZONA_MERCADO}', ts), open, high, low, close, volume
+        FROM '{ruta_parquet(simbolo)}'
+        WHERE ts >= timezone('{ZONA_MERCADO}', $desde::TIMESTAMP)
+          AND ts < timezone('{ZONA_MERCADO}', $hasta::TIMESTAMP)
+        ORDER BY ts
+        """,
+        {"desde": desde, "hasta": hasta},
+    ).fetchall()
+
+
+def minuto_aleatorio(
+    simbolo: str, desde: datetime, hasta: datetime, sesion: str | None, azar: random.Random
+) -> datetime | None:
+    """Inicio (hora ET) de un minuto con datos al azar en [desde, hasta), opcionalmente de una sesión."""
+    filtro = f"""
+        FROM '{ruta_parquet(simbolo)}'
+        WHERE ts >= timezone('{ZONA_MERCADO}', $desde::TIMESTAMP)
+          AND ts < timezone('{ZONA_MERCADO}', $hasta::TIMESTAMP)
+          AND ($sesion::VARCHAR IS NULL OR sesion = $sesion::VARCHAR)
+    """
+    con = conexion()
+    parametros = {"desde": desde, "hasta": hasta, "sesion": sesion}
+    total = con.execute(f"SELECT count(*) {filtro}", parametros).fetchone()[0]
+    if not total:
+        return None
+    return con.execute(
+        f"SELECT timezone('{ZONA_MERCADO}', ts) {filtro} ORDER BY ts LIMIT 1 OFFSET {azar.randrange(total)}",
+        parametros,
+    ).fetchone()[0]

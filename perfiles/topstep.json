@@ -1,0 +1,52 @@
+{
+  "empresa": "Topstep",
+  "revisado": "2026-10-16",
+  "fuentes": [
+    "https://help.topstep.com/en/articles/8284197-trading-combine-parameters",
+    "https://help.topstep.com/en/articles/8284204-what-is-the-maximum-loss-limit",
+    "https://help.topstep.com/en/articles/8284208-consistency-at-topstep",
+    "https://help.topstep.com/en/articles/10490293-daily-loss-limit-in-the-trading-combine-and-express-funded-account"
+  ],
+  "notas": "El límite diario es opcional al comprar el Combine: si no lo quieres, pon limite_diario a null.",
+  "cuentas": [
+    {
+      "id": "topstep-50k",
+      "nombre": "Trading Combine 50K",
+      "balance_inicial": 50000,
+      "objetivo": 3000,
+      "perdida_maxima": {"importe": 2000, "tipo": "trailing_cierre", "tope": "balance_inicial"},
+      "limite_diario": {"importe": 1000, "efecto": "pausa"},
+      "consistencia": 0.55,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": null,
+      "contratos_maximos": 5,
+      "hora_cierre": "16:10"
+    },
+    {
+      "id": "topstep-100k",
+      "nombre": "Trading Combine 100K",
+      "balance_inicial": 100000,
+      "objetivo": 6000,
+      "perdida_maxima": {"importe": 3000, "tipo": "trailing_cierre", "tope": "balance_inicial"},
+      "limite_diario": {"importe": 2000, "efecto": "pausa"},
+      "consistencia": 0.55,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": null,
+      "contratos_maximos": 10,
+      "hora_cierre": "16:10"
+    },
+    {
+      "id": "topstep-150k",
+      "nombre": "Trading Combine 150K",
+      "balance_inicial": 150000,
+      "objetivo": 9000,
+      "perdida_maxima": {"importe": 4500, "tipo": "trailing_cierre", "tope": "balance_inicial"},
+      "limite_diario": {"importe": 3000, "efecto": "pausa"},
+      "consistencia": 0.55,
+      "dias_minimos": 2,
+      "beneficio_minimo_dia": null,
+      "contratos_maximos": 15,
+      "hora_cierre": "16:10"
+    }
+  ]
+}
