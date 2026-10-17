@@ -1,7 +1,7 @@
 """Servidor principal: API bajo /api y frontend estático en /."""
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -10,11 +10,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
 from trading_replay import __version__, replay
+from trading_replay.backtest import almacen_bt, cargador, metricas, trabajos
+from trading_replay.backtest.estrategia import ParametroNoValido, valores_parametros
 from trading_replay.config import INSTRUMENTOS
 from trading_replay.historico import almacen
-from trading_replay.operativa import servicio
+from trading_replay.operativa import perfiles, servicio
 from trading_replay.operativa.perfiles import PerfilNoValido
-from trading_replay.operativa.motor import MAX_CONTRATOS, OrdenNoValida
+from trading_replay.operativa.motor import MAX_CONTRATOS, Costes, OrdenNoValida
 
 RAIZ = Path(__file__).resolve().parents[2]
 FRONTEND = RAIZ / "frontend"
@@ -155,6 +157,8 @@ def ver_replay() -> dict:
 
 @app.post("/api/replay")
 def iniciar_replay(peticion: InicioReplay) -> dict:
+    if trabajos.en_marcha():
+        raise HTTPException(409, "Hay un backtest en marcha: espera a que termine o cancélalo")
     simbolo, disponible = comprobar_simbolo(peticion.simbolo)
     if peticion.aleatorio:
         instante = replay.instante_aleatorio(simbolo, peticion.sesion)
@@ -372,6 +376,254 @@ def reiniciar_cuenta(id_cuenta: int) -> dict:
 @app.delete("/api/cuentas/{id_cuenta}")
 def borrar_cuenta(id_cuenta: int) -> list[dict]:
     return sobre_cuenta(lambda: servicio.borrar_cuenta(id_cuenta) or servicio.cuentas())
+
+
+# --- Backtest de estrategias (spec 008) ---
+
+
+def _estrategia(id_estrategia: str) -> cargador.InfoEstrategia:
+    try:
+        return cargador.buscar(id_estrategia)
+    except KeyError as error:
+        raise HTTPException(404, f"No existe la estrategia {id_estrategia}") from error
+
+
+@app.get("/api/estrategias")
+def ver_estrategias() -> list[dict]:
+    return [info.api() for info in cargador.listar()]
+
+
+@app.get("/api/estrategias/{id_estrategia}/codigo")
+def ver_codigo_estrategia(id_estrategia: str) -> dict:
+    info = _estrategia(id_estrategia)
+    return {"id": info.id, "ruta": str(info.ruta), "huella": info.huella, "codigo": info.codigo}
+
+
+@app.post("/api/estrategias/{id_estrategia}/duplicar")
+def duplicar_estrategia(id_estrategia: str) -> dict:
+    _estrategia(id_estrategia)
+    return cargador.duplicar(id_estrategia).api()
+
+
+class CostesBacktest(BaseModel):
+    spread_ticks: int = Field(1, ge=0, le=20)
+    deslizamiento_ticks: int = Field(0, ge=0, le=20)
+    comision_mini: float = Field(2.5, ge=0, le=100)
+    comision_micro: float = Field(0.75, ge=0, le=100)
+
+
+class NuevoBacktest(BaseModel):
+    estrategia: str
+    simbolo: str
+    desde: date | None = Field(None, description="primer día de trading; por defecto, el primero con datos")
+    hasta: date | None = Field(None, description="último día de trading, incluido; por defecto, el último")
+    parametros: dict = Field(default_factory=dict)
+    costes: CostesBacktest = Field(default_factory=CostesBacktest)
+    perfil: str | None = Field(None, description="perfil de reto (spec 009); sin él, backtest sin reto")
+
+
+INICIO_DIA = time(18, 0)
+
+
+def _dia_trading(dia: date) -> datetime:
+    """Inicio (18:00 ET de la víspera) del día de trading `dia`."""
+    return datetime.combine(dia - timedelta(days=1), INICIO_DIA)
+
+
+@app.post("/api/backtests")
+def lanzar_backtest(peticion: NuevoBacktest) -> dict:
+    if replay.actual():
+        raise HTTPException(409, "El backtest enseña todo el histórico: sal del replay antes de lanzarlo")
+    simbolo, disponible = comprobar_simbolo(peticion.simbolo)
+    info = _estrategia(peticion.estrategia)
+    if info.error:
+        raise HTTPException(422, f"La estrategia tiene un error: {info.error}")
+    try:
+        valores = valores_parametros(info.clase.parametros, peticion.parametros)
+    except ParametroNoValido as error:
+        raise HTTPException(422, str(error)) from error
+    desde = _dia_trading(peticion.desde) if peticion.desde else disponible[0]
+    hasta = _dia_trading(peticion.hasta + timedelta(days=1)) if peticion.hasta else disponible[1] + timedelta(minutes=1)
+    if desde >= hasta:
+        raise HTTPException(422, "El periodo está vacío: «desde» tiene que ser anterior a «hasta»")
+    try:
+        perfil = perfiles.buscar(peticion.perfil) if peticion.perfil else None
+    except PerfilNoValido as error:
+        raise HTTPException(422, str(error)) from error
+    try:
+        trabajo = trabajos.lanzar(info, valores, simbolo, desde, hasta, Costes(**peticion.costes.model_dump()), perfil)
+    except trabajos.EnMarcha as error:
+        raise HTTPException(409, str(error)) from error
+    return trabajo.api()
+
+
+@app.get("/api/backtests/en-marcha")
+def ver_backtest_en_marcha() -> dict | None:
+    trabajo = trabajos.actual()
+    return trabajo.api() if trabajo else None
+
+
+@app.post("/api/backtests/en-marcha/cancelar")
+def cancelar_backtest() -> dict | None:
+    trabajo = trabajos.cancelar()
+    return trabajo.api() if trabajo else None
+
+
+def _ejecucion_api(meta: dict, huellas: dict[str, str]) -> dict:
+    actual = huellas.get(meta["estrategia"])
+    return {
+        **meta,
+        "desde": meta["desde"].isoformat(),
+        "hasta": meta["hasta"].isoformat(),
+        # El archivo ya no está, o su código no es el que dio este resultado (RF-17).
+        "codigo_cambiado": actual != meta["huella"],
+        "estrategia_borrada": actual is None,
+    }
+
+
+def _operacion_api(op) -> dict:
+    return {
+        "numero": op.numero,
+        "contrato": op.contrato,
+        "lado": "largo" if op.lado > 0 else "corto",
+        "cantidad": op.cantidad,
+        "apertura": op.apertura.isoformat(),
+        "cierre": op.cierre.isoformat(),
+        "t_apertura": metricas.segundos_grafico(op.apertura),
+        "t_cierre": metricas.segundos_grafico(op.cierre),
+        # Minutos cuyo precio dio la entrada y la salida, para poner las marcas en su vela.
+        "t_minuto_entrada": metricas.segundos_grafico(op.minuto_entrada or op.apertura),
+        "t_minuto_salida": metricas.segundos_grafico(op.minuto_salida or op.cierre),
+        "entrada": op.entrada,
+        "salida": op.salida,
+        "sl_inicial": op.sl_inicial,
+        "sl_final": op.sl_final,
+        "tp_final": op.tp_final,
+        "motivo_entrada": op.motivo_entrada,
+        "motivo_salida": op.motivo_salida,
+        "pnl_neto": op.pnl_neto,
+        "r": round(op.r, 3) if op.r is not None else None,
+        "dudosa": op.dudosa,
+        "intento": op.intento,
+    }
+
+
+def _huellas() -> dict[str, str]:
+    return {info.id: info.huella for info in cargador.listar()}
+
+
+@app.get("/api/backtests")
+def historial_backtests() -> list[dict]:
+    huellas = _huellas()
+    return [_ejecucion_api(meta, huellas) for meta in almacen_bt.listar()]
+
+
+def _meta_backtest(id_ejecucion: int, con_codigo: bool = False) -> dict:
+    try:
+        return almacen_bt.ejecucion(id_ejecucion, con_codigo)
+    except KeyError as error:
+        raise HTTPException(404, "No existe esa ejecución") from error
+
+
+def _lista(texto: str | None, convertir=str) -> set | None:
+    """"2023,2024" → {2023, 2024}; vacío → None (sin filtrar)."""
+    if not texto:
+        return None
+    try:
+        return {convertir(x.strip()) for x in texto.split(",") if x.strip()} or None
+    except ValueError as error:
+        raise HTTPException(422, f"Filtro no válido: {texto}") from error
+
+
+def _filtro(desde, hasta, anios, sesiones, dias, lado) -> metricas.Filtro:
+    sesiones_ok = _lista(sesiones)
+    if sesiones_ok and not sesiones_ok <= set(metricas.SESIONES):
+        raise HTTPException(422, f"Sesiones: {', '.join(metricas.SESIONES)}")
+    if lado is not None and lado not in metricas.LADOS:
+        raise HTTPException(422, "Lado: largos o cortos")
+    return metricas.Filtro(
+        desde=_dia_trading(desde) if desde else None,
+        hasta=_dia_trading(hasta + timedelta(days=1)) if hasta else None,
+        anios=_lista(anios, int),
+        sesiones=sesiones_ok,
+        dias=_lista(dias),
+        lado=lado,
+    )
+
+
+@app.get("/api/backtests/{id_ejecucion}")
+def ver_backtest(
+    id_ejecucion: int,
+    desde: date | None = None,
+    hasta: date | None = Query(None, description="último día de trading, incluido"),
+    anios: str | None = Query(None, description="separados por comas"),
+    sesiones: str | None = Query(None, description="asia, londres, nueva_york, separadas por comas"),
+    dias: str | None = Query(None, description="lunes, martes... separados por comas"),
+    lado: str | None = Query(None, description="largos o cortos"),
+    inicio: int = Query(0, ge=0, description="primera operación de la lista que se devuelve"),
+    limite: int = Query(200, ge=0, le=5000),
+) -> dict:
+    """Métricas, curva, desglose y operaciones de una ejecución, con los filtros de RF-12."""
+    meta = _meta_backtest(id_ejecucion)
+    filtro = _filtro(desde, hasta, anios, sesiones, dias, lado)
+    ops = metricas.filtrar(almacen_bt.operaciones(id_ejecucion), filtro)
+    periodo_desde = max(meta["desde"], filtro.desde) if filtro.desde else meta["desde"]
+    periodo_hasta = min(meta["hasta"], filtro.hasta) if filtro.hasta else meta["hasta"]
+    reto = None
+    if meta["reto"]:
+        intentos = almacen_bt.intentos(id_ejecucion)
+        reto = {"perfil": meta["perfil"], "titulo": meta["reto"].get("titulo"), "resumen": meta["reto"], "intentos": intentos}
+    return {
+        "ejecucion": _ejecucion_api(meta, _huellas()),
+        "reto": reto,
+        "resumen": metricas.resumen(ops, metricas.meses_entre(periodo_desde, periodo_hasta)),
+        "curva": metricas.curva(ops),
+        "desglose": metricas.desglose(ops),
+        "total": len(ops),
+        "inicio": inicio,
+        "operaciones": [_operacion_api(op) for op in ops[inicio : inicio + limite]],
+    }
+
+
+@app.get("/api/backtests/{id_ejecucion}/tramo")
+def ver_tramo_backtest(
+    id_ejecucion: int,
+    desde: datetime = Query(description="hora ET"),
+    hasta: datetime = Query(description="hora ET"),
+) -> dict:
+    """Operaciones y marcas de la estrategia que se ven en un tramo del gráfico (RF-14 y RF-15)."""
+    _meta_backtest(id_ejecucion)
+    desde, hasta = desde.replace(tzinfo=None), hasta.replace(tzinfo=None)
+    ops = [op for op in almacen_bt.operaciones(id_ejecucion) if op.apertura < hasta and op.cierre >= desde]
+    return {
+        "operaciones": [_operacion_api(op) for op in ops],
+        "marcas": [
+            {
+                "tipo": m.tipo,
+                "t": metricas.segundos_grafico(m.instante),
+                "t_fin": metricas.segundos_grafico(m.fin) if m.fin else None,
+                "precio": m.precio,
+                "precio2": m.precio2,
+                "texto": m.texto,
+            }
+            for m in almacen_bt.marcas(id_ejecucion, desde, hasta)
+        ],
+    }
+
+
+@app.get("/api/backtests/{id_ejecucion}/codigo")
+def ver_codigo_backtest(id_ejecucion: int) -> dict:
+    meta = _meta_backtest(id_ejecucion, con_codigo=True)
+    return {"id": id_ejecucion, "estrategia": meta["estrategia"], "huella": meta["huella"], "codigo": meta["codigo"]}
+
+
+@app.delete("/api/backtests/{id_ejecucion}")
+def borrar_backtest(id_ejecucion: int) -> dict:
+    try:
+        almacen_bt.borrar(id_ejecucion)
+    except KeyError as error:
+        raise HTTPException(404, "No existe esa ejecución") from error
+    return {"borrada": id_ejecucion}
 
 
 # Se monta al final para que no tape las rutas de /api.

@@ -695,7 +695,18 @@ function conSegundoClic(boton, aviso, accion) {
   });
 }
 
-async function cambiarCuenta(cuerpo, ruta = `/api/cuentas/${$("cuenta-activa").value}`, metodo = "PATCH") {
+// Lo que se manda para crear una cuenta, leído del formulario del panel ("nueva") o del resumen de
+// cuentas ("resumen-nueva"). Devuelve null si falta el nombre o el balance de una cuenta libre.
+function cuerpoNuevaCuenta(prefijo) {
+  const nombre = $(`${prefijo}-nombre`).value.trim();
+  const balance = Number($(`${prefijo}-balance`).value);
+  const perfil = $(`${prefijo}-tipo`).value; // retos.js rellena los perfiles de reto (spec 006)
+  if (!perfil && (!nombre || !(balance > 0))) return null;
+  // En un reto, el balance inicial es el del perfil y el nombre, si no se escribe, también.
+  return perfil ? { perfil, ...(nombre && { nombre }) } : { nombre, balance_inicial: balance };
+}
+
+async function cambiarCuenta(cuerpo,ruta = `/api/cuentas/${$("cuenta-activa").value}`, metodo = "PATCH") {
   try {
     await pedir(ruta, metodo, cuerpo);
     mostrarAviso();
@@ -771,16 +782,12 @@ function prepararOperativa() {
     cambiarCuenta(undefined, `/api/cuentas/${$("cuenta-activa").value}`, "DELETE"),
   );
   $("crear-cuenta").addEventListener("click", () => {
-    const nombre = $("nueva-nombre").value.trim();
-    const balance = Number($("nueva-balance").value);
-    const perfil = $("nueva-tipo").value; // retos.js rellena los perfiles de reto (spec 006)
-    if (!perfil && (!nombre || !(balance > 0))) {
+    const cuerpo = cuerpoNuevaCuenta("nueva");
+    if (!cuerpo) {
       mostrarAviso("La cuenta nueva necesita nombre y balance inicial");
       return;
     }
     $("nueva-nombre").value = "";
-    // En un reto, el balance inicial es el del perfil y el nombre, si no se escribe, también.
-    const cuerpo = perfil ? { perfil, ...(nombre && { nombre }) } : { nombre, balance_inicial: balance };
     cambiarCuenta(cuerpo, "/api/cuentas", "POST");
   });
   $("guardar-costes").addEventListener("click", () => {

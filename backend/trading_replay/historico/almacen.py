@@ -20,13 +20,26 @@ from trading_replay.historico.dukascopy import decodificar
 TIMEFRAMES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1D": 1440}
 DESFASE_DIA = timedelta(hours=6)  # 18:00 ET + 6 h = 00:00
 
-SESION_SQL = """
+# Sesiones según la hora ET de inicio del minuto, en minutos desde las 00:00. De 17:00 a 18:00, ninguna.
+INICIO_ASIA, INICIO_LONDRES, INICIO_NUEVA_YORK, FIN_NUEVA_YORK = 18 * 60, 3 * 60, 9 * 60 + 30, 17 * 60
+SESION_SQL = f"""
     CASE
-        WHEN m >= 18 * 60 OR m < 3 * 60 THEN 'asia'
-        WHEN m < 9 * 60 + 30 THEN 'londres'
-        WHEN m < 17 * 60 THEN 'nueva_york'
+        WHEN m >= {INICIO_ASIA} OR m < {INICIO_LONDRES} THEN 'asia'
+        WHEN m < {INICIO_NUEVA_YORK} THEN 'londres'
+        WHEN m < {FIN_NUEVA_YORK} THEN 'nueva_york'
     END
 """
+
+
+def sesion(minuto_del_dia: int) -> str | None:
+    """La misma regla que `SESION_SQL`, en Python."""
+    if minuto_del_dia >= INICIO_ASIA or minuto_del_dia < INICIO_LONDRES:
+        return "asia"
+    if minuto_del_dia < INICIO_NUEVA_YORK:
+        return "londres"
+    if minuto_del_dia < FIN_NUEVA_YORK:
+        return "nueva_york"
+    return None
 
 
 def ruta_parquet(simbolo: str) -> Path:
@@ -160,6 +173,21 @@ def minutos(simbolo: str, desde: datetime, hasta: datetime) -> list[tuple]:
         """,
         {"desde": desde, "hasta": hasta},
     ).fetchall()
+
+
+def columnas_1m(simbolo: str, desde: datetime, hasta: datetime) -> dict[str, np.ndarray]:
+    """Como `minutos`, por columnas de numpy y con la hora en segundos (`t`, como `time` en `consultar`).
+    Es lo que usa el backtest para recorrer años de minutos sin crear un objeto por minuto."""
+    return conexion().execute(
+        f"""
+        SELECT epoch(timezone('{ZONA_MERCADO}', ts))::BIGINT AS t, open, high, low, close, volume
+        FROM '{ruta_parquet(simbolo)}'
+        WHERE ts >= timezone('{ZONA_MERCADO}', $desde::TIMESTAMP)
+          AND ts < timezone('{ZONA_MERCADO}', $hasta::TIMESTAMP)
+        ORDER BY ts
+        """,
+        {"desde": desde, "hasta": hasta},
+    ).fetchnumpy()
 
 
 def minuto_aleatorio(

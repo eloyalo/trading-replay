@@ -17,6 +17,7 @@
     </div>
     <div class="grupo">
       <button id="boton-resumen-cuentas" title="Cómo van tus cuentas y tus retos">Cuentas</button>
+      <button id="boton-backtest" title="Pasar una estrategia por el histórico (sin replay en marcha)">Backtest</button>
     </div>
     <span id="info" class="info"></span>
     <span id="estado" class="estado estado--comprobando">Comprobando backend…</span>
@@ -47,6 +48,18 @@
     <div class="grupo solo-replay">
       <button id="boton-operar" aria-pressed="true" aria-controls="operar" title="Mostrar u ocultar el panel de operar">Operar</button>
       <button id="salir" title="Volver al gráfico normal (Esc)">Salir del replay</button>
+    </div>
+  </div>
+  <div class="barra barra--backtest" aria-label="Backtest en el gráfico">
+    <div class="grupo">
+      <button id="bt-anterior" title="Operación anterior (←)" aria-label="Operación anterior">◀</button>
+      <button id="bt-siguiente" title="Operación siguiente (→)" aria-label="Operación siguiente">▶</button>
+    </div>
+    <span id="bt-operacion" class="bt-operacion"></span>
+    <span id="bt-aviso" class="aviso"></span>
+    <div class="grupo">
+      <button id="bt-resultados" title="Volver a los resultados">Resultados</button>
+      <button id="bt-salir" title="Volver al gráfico normal (Esc)">Salir del backtest</button>
     </div>
   </div>
   <div class="cuerpo">
@@ -156,6 +169,7 @@
   <script src="operativa.js"></script>
   <script src="replay.js"></script>
   <script src="retos.js"></script>
+  <script src="backtest.js"></script>
 
   <dialog id="ventana-reto" class="ventana">
     <canvas id="confeti" class="confeti" aria-hidden="true"></canvas>
@@ -164,10 +178,142 @@
   <dialog id="ventana-cuentas" class="ventana ventana--ancha" aria-labelledby="titulo-cuentas">
     <header class="ventana__cabecera">
       <h2 id="titulo-cuentas">Tus cuentas</h2>
-      <button type="button" class="ventana__cerrar" data-cerrar aria-label="Cerrar">×</button>
+      <div class="ventana__acciones">
+        <button id="boton-nueva-cuenta" type="button" aria-expanded="false" aria-controls="resumen-nueva">Nueva cuenta</button>
+        <button type="button" class="ventana__cerrar" data-cerrar aria-label="Cerrar">×</button>
+      </div>
     </header>
+    <form id="resumen-nueva" class="nueva-cuenta" novalidate hidden>
+      <label>Tipo <select id="resumen-nueva-tipo"><option value="">Libre</option></select></label>
+      <label>Nombre <input id="resumen-nueva-nombre" type="text" maxlength="60" placeholder="Reto 50k"></label>
+      <label>Balance inicial ($) <input id="resumen-nueva-balance" type="number" min="1" step="1000" value="50000"></label>
+      <div class="nueva-cuenta__botones">
+        <button type="submit" class="boton-principal">Crear y usar</button>
+        <button id="cancelar-nueva-cuenta" type="button">Cancelar</button>
+      </div>
+    </form>
     <p id="cuentas-aviso" class="aviso aviso--error"></p>
     <div id="tarjetas-cuentas" class="tarjetas"></div>
+  </dialog>
+  <dialog id="ventana-backtest" class="ventana ventana--ancha ventana--backtest" aria-labelledby="titulo-backtest">
+    <header class="ventana__cabecera">
+      <h2 id="titulo-backtest">Backtest</h2>
+      <nav class="pestanas" role="tablist" aria-label="Secciones del backtest">
+        <button role="tab" data-pestana="lanzar" aria-selected="true">Lanzar</button>
+        <button role="tab" data-pestana="resultados" aria-selected="false">Resultados</button>
+        <button role="tab" data-pestana="historial" aria-selected="false">Historial</button>
+      </nav>
+      <button type="button" class="ventana__cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </header>
+
+    <section id="pestana-lanzar" class="pestana" role="tabpanel">
+      <div class="bt-lanzar">
+        <div class="bt-columna">
+          <label class="bt-campo">Estrategia <select id="bt-estrategia"></select></label>
+          <p id="bt-descripcion" class="bt-descripcion"></p>
+          <p class="bt-ruta"><span id="bt-ruta"></span></p>
+          <div class="bt-botones">
+            <button id="bt-ver-codigo" type="button" aria-expanded="false" aria-controls="bt-codigo">Ver código</button>
+            <button id="bt-duplicar" type="button" title="Copia el archivo para probar cambios sin tocar el original">Duplicar</button>
+            <button id="bt-recargar" type="button" title="Vuelve a leer la carpeta estrategias/">Recargar lista</button>
+          </div>
+          <pre id="bt-codigo" class="bt-codigo" hidden></pre>
+          <div id="bt-error-estrategia" class="bt-error" hidden></div>
+        </div>
+        <div class="bt-columna">
+          <h3>Parámetros</h3>
+          <div id="bt-parametros" class="bt-parametros"></div>
+          <h3>Instrumento y periodo</h3>
+          <div class="bt-parametros">
+            <label>Instrumento <select id="bt-simbolo"></select></label>
+            <label>Desde (día de trading) <input id="bt-desde" type="date"></label>
+            <label>Hasta (incluido) <input id="bt-hasta" type="date"></label>
+          </div>
+          <p class="nota">Vacío: todo el histórico.</p>
+          <h3>Reto de prop firm</h3>
+          <div class="bt-parametros">
+            <label>Reglas de <select id="bt-perfil"><option value="">Sin reto</option></select></label>
+          </div>
+          <p class="nota">Con reto, se aplican sus reglas minuto a minuto y los intentos se encadenan: cada día de trading es un día del reto.</p>
+          <h3>Costes</h3>
+          <div class="bt-parametros">
+            <label>Spread (ticks) <input id="bt-coste-spread_ticks" type="number" min="0" max="20" step="1" value="1"></label>
+            <label>Deslizamiento (ticks) <input id="bt-coste-deslizamiento_ticks" type="number" min="0" max="20" step="1" value="0"></label>
+            <label>Comisión mini ($/lado) <input id="bt-coste-comision_mini" type="number" min="0" step="0.01" value="2.5"></label>
+            <label>Comisión micro ($/lado) <input id="bt-coste-comision_micro" type="number" min="0" step="0.01" value="0.75"></label>
+          </div>
+          <div class="bt-lanzador">
+            <button id="bt-lanzar" type="button" class="boton-principal">Lanzar</button>
+            <div id="bt-progreso" class="bt-progreso" hidden>
+              <div class="progreso"><div id="bt-progreso-relleno" class="progreso__relleno"></div></div>
+              <span id="bt-progreso-texto"></span>
+              <button id="bt-cancelar" type="button">Cancelar</button>
+            </div>
+          </div>
+          <p id="bt-aviso-lanzar" class="aviso aviso--error"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="pestana-resultados" class="pestana" role="tabpanel" hidden>
+      <p id="bt-sin-resultados" class="nota">Lanza un backtest o abre uno del historial.</p>
+      <div id="bt-resultados-contenido" hidden>
+        <div class="bt-cabecera-resultados">
+          <div>
+            <h3 id="bt-titulo-ejecucion"></h3>
+            <p id="bt-detalle-ejecucion" class="nota"></p>
+          </div>
+          <div class="bt-botones">
+            <button id="bt-ver-codigo-ejecucion" type="button" aria-expanded="false" aria-controls="bt-codigo-ejecucion">Código ejecutado</button>
+            <button id="bt-ver-grafico" type="button" class="boton-principal">Ver en el gráfico</button>
+          </div>
+        </div>
+        <pre id="bt-codigo-ejecucion" class="bt-codigo" hidden></pre>
+        <section id="bt-reto" class="bt-reto" hidden>
+          <h3 id="bt-reto-titulo">Reto</h3>
+          <div id="bt-reto-cifras" class="bt-cifras"></div>
+          <div class="bt-tabla-caja bt-tabla-caja--intentos">
+            <table class="bt-tabla bt-tabla--intentos">
+              <thead><tr><th>Intento</th><th>Días de trading</th><th>Resultado</th><th>Motivo</th><th>Días del reto</th><th>Beneficio</th><th>Mejor día</th><th>Ops.</th></tr></thead>
+              <tbody id="bt-intentos"></tbody>
+            </table>
+          </div>
+          <p class="nota">Pulsa un intento para ver solo sus operaciones (pone los filtros de fecha en su periodo).</p>
+        </section>
+        <form id="bt-filtros" class="bt-filtros" novalidate>
+          <label>Desde <input id="bt-filtro-desde" type="date"></label>
+          <label>Hasta <input id="bt-filtro-hasta" type="date"></label>
+          <fieldset><legend>Año</legend><div id="bt-filtro-anios" class="chips"></div></fieldset>
+          <fieldset><legend>Sesión</legend><div id="bt-filtro-sesiones" class="chips"></div></fieldset>
+          <fieldset><legend>Día</legend><div id="bt-filtro-dias" class="chips"></div></fieldset>
+          <label>Lado <select id="bt-filtro-lado"><option value="">Todos</option><option value="largos">Largos</option><option value="cortos">Cortos</option></select></label>
+          <button id="bt-quitar-filtros" type="button">Quitar filtros</button>
+        </form>
+        <div id="bt-cifras" class="bt-cifras"></div>
+        <h3>Curva de capital</h3>
+        <div id="bt-curva" class="bt-curva"></div>
+        <h3>Desglose</h3>
+        <div id="bt-desglose" class="bt-desglose"></div>
+        <h3 id="bt-titulo-operaciones">Operaciones</h3>
+        <div class="bt-tabla-caja">
+          <table class="bt-tabla bt-tabla--operaciones">
+            <thead><tr><th>#</th><th>Entrada (ET)</th><th>Lado</th><th>Cant.</th><th>Precio</th><th>Salida</th><th>SL</th><th>TP</th><th>Motivo</th><th>PnL neto</th><th>R</th><th class="solo-reto">Intento</th></tr></thead>
+            <tbody id="bt-operaciones"></tbody>
+          </table>
+        </div>
+        <button id="bt-ver-mas" type="button" hidden>Ver más</button>
+      </div>
+    </section>
+
+    <section id="pestana-historial" class="pestana" role="tabpanel" hidden>
+      <p id="bt-aviso-historial" class="aviso aviso--error"></p>
+      <div class="bt-tabla-caja">
+        <table class="bt-tabla bt-tabla--historial">
+          <thead><tr><th>Lanzado</th><th>Estrategia</th><th>Parámetros</th><th>Instr.</th><th>Periodo</th><th>Ops.</th><th>% acierto</th><th>PF</th><th>Esp. R</th><th>Drawdown</th><th>Neto</th><th></th></tr></thead>
+          <tbody id="bt-historial"></tbody>
+        </table>
+      </div>
+    </section>
   </dialog>
 </body>
 </html>

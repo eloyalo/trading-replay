@@ -17,6 +17,11 @@ def carpeta_datos() -> Path:
     return Path(os.environ.get("TRADING_REPLAY_DATOS", RAIZ / "datos"))
 
 
+def carpeta_estrategias() -> Path:
+    """Carpeta de las estrategias del backtest (spec 008); se puede cambiar con TRADING_REPLAY_ESTRATEGIAS."""
+    return Path(os.environ.get("TRADING_REPLAY_ESTRATEGIAS", RAIZ / "estrategias"))
+
+
 @dataclass(frozen=True)
 class Instrumento:
     simbolo: str

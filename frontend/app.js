@@ -1,6 +1,8 @@
 const { createChart, CandlestickSeries } = LightweightCharts;
 
 const TIMEFRAMES = Object.keys(MINUTOS_TF);
+// Días que devuelve /api/velas de cada timeframe (`VENTANA_POR_DEFECTO` en app.py), para pedir tramos a la derecha.
+const DIAS_VENTANA = { "1m": 3, "5m": 14, "15m": 31, "30m": 62, "1h": 92, "4h": 366, "1D": 3660 };
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 // Preferencias del usuario en el navegador. Si el almacenamiento falla, se usan los valores por defecto.
@@ -58,6 +60,10 @@ const estado = {
   cargando: false,
   completo: false,
   peticion: 0,
+  // Modo backtest (spec 008): se carga hasta `ancla` (segundos, como `time`) en vez de hasta el final, y
+  // se pide más a la derecha al desplazarse. Con null, como siempre.
+  ancla: null,
+  completoDerecha: true,
   ciego: preferencias.leer("ciego", false), // modo a ciegas: sin día, mes ni año (spec 003, RF-14)
 };
 
@@ -114,27 +120,28 @@ async function api(ruta, opciones) {
   return datos;
 }
 
-function pedirVelas(hasta) {
+function pedirVelas(hasta, desde) {
   const params = new URLSearchParams({ simbolo: estado.simbolo, tf: estado.tf });
   if (hasta) params.set("hasta", hasta);
+  if (desde) params.set("desde", desde);
   return enSerie(() => api(`/api/velas?${params}`));
 }
 
 async function cargar() {
   const peticion = ++estado.peticion;
   for (const avisar of alRecargar) avisar();
-  Object.assign(estado, { velas: [], completo: false, cargando: true });
+  Object.assign(estado, { velas: [], completo: false, completoDerecha: estado.ancla === null, cargando: true });
   serie.setData([]);
   redibujarIndicadores();
   mostrarInfo("Cargando…");
   try {
-    const datos = await pedirVelas();
+    const datos = await pedirVelas(estado.ancla === null ? undefined : horaET(estado.ancla));
     if (peticion !== estado.peticion) return; // el usuario ya cambió de instrumento o timeframe
     estado.velas = datos.velas;
     estado.inicioDatos = datos.inicio_datos;
     serie.setData(estado.velas);
     redibujarIndicadores();
-    grafico.timeScale().scrollToRealTime();
+    if (estado.ancla === null) grafico.timeScale().scrollToRealTime();
     for (const avisar of alCargar) avisar();
   } catch (error) {
     mostrarInfo(error.message);
@@ -170,8 +177,38 @@ async function cargarAnteriores() {
   }
 }
 
+// En modo backtest, al acercarse al borde derecho se pide el tramo siguiente. La última vela cargada
+// puede estar a medias (`hasta` cae dentro de ella), así que se pide otra vez entera y se sustituye.
+async function cargarPosteriores() {
+  if (estado.cargando || estado.completoDerecha || !estado.velas.length) return;
+  const peticion = estado.peticion;
+  estado.cargando = true;
+  try {
+    const desde = estado.velas.at(-1).time;
+    // Una ventana entera sin datos (festivo y fin de semana en 1m) no es el final: se prueba con la siguiente.
+    let nuevas = [];
+    for (let intento = 1; intento <= 4 && nuevas.length <= 1; intento++) {
+      const hasta = desde + intento * DIAS_VENTANA[estado.tf] * 86400;
+      const datos = await pedirVelas(horaET(hasta), horaET(desde));
+      if (peticion !== estado.peticion) return;
+      nuevas = datos.velas.filter((v) => v.time >= desde);
+    }
+    if (nuevas.length <= 1) estado.completoDerecha = true;
+    if (nuevas.length) {
+      estado.velas = estado.velas.slice(0, -1).concat(nuevas);
+      serie.setData(estado.velas);
+      redibujarIndicadores();
+      for (const avisar of alCargar) avisar();
+    }
+    mostrarInfo();
+  } finally {
+    if (peticion === estado.peticion) estado.cargando = false;
+  }
+}
+
 grafico.timeScale().subscribeVisibleLogicalRangeChange((rango) => {
   if (rango && rango.from < 20) cargarAnteriores();
+  if (rango && rango.to > estado.velas.length - 20) cargarPosteriores();
 });
 
 function mostrarInfo(texto) {

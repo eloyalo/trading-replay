@@ -1,8 +1,8 @@
 # 006 · Simulador de prop firm
 
-- **Estado:** En curso: implementada y probada en Chrome, pendiente de que el usuario la pruebe (aprobada el 2026-10-16)
+- **Estado:** Hecha (aprobada el 2026-10-16; el usuario la probó y la dio por buena el 2026-10-16, con el RF-22 añadido)
 - **Fase:** 4
-- **Creada:** 2026-10-16 · **Actualizada:** 2026-10-16 (pedido por el usuario: cuentas Static de DayTraders, celebración al aprobar y resumen de cuentas)
+- **Creada:** 2026-10-16 · **Actualizada:** 2026-10-16 (pedido por el usuario: cuentas Static de DayTraders, celebración al aprobar, resumen de cuentas y nueva cuenta desde el resumen)
 
 ## Problema
 
@@ -114,6 +114,7 @@ Las reglas cambian a menudo. Se han revisado en las páginas oficiales y por eso
     - **Qué falta para aprobar,** en una línea: "Te faltan 772,73 $ y 1 día válido".
     - Los intentos anteriores de cada reto.
     - En modo a ciegas no se ven fechas: los días van numerados.
+22. **RF-22 · Nueva cuenta desde el resumen** (pedido por el usuario al probar la fase). La ventana de "Cuentas" tiene un botón "Nueva cuenta" que despliega el mismo formulario que el panel de operar (tipo, nombre y balance inicial) y crea la cuenta y la deja activa, también fuera del replay. Si hay algo abierto en la cuenta activa, se explica en la ventana que no se puede, como al usar otra cuenta.
 
 ## Criterios de aceptación
 
@@ -130,6 +131,7 @@ Las reglas cambian a menudo. Se han revisado en las páginas oficiales y por eso
 - [x] DayTraders Static 50K: el umbral se queda en 49.000 $ aunque el balance suba (test).
 - [x] El resumen de cuentas calcula bien beneficio, % de acierto, objetivo efectivo, lo que falta por consistencia y los días válidos de una cuenta con días ganadores y perdedores (test).
 - [x] En Chrome: el botón "Cuentas" funciona fuera del replay y la consistencia se explica con los números de la cuenta.
+- [x] En Chrome: desde la ventana de "Cuentas", fuera del replay, se crea un reto Topstep 50K y queda activo, con su tarjeta en la lista.
 - [x] Reiniciar un reto suspendido guarda el intento en el historial y deja la cuenta como nueva (test).
 - [x] En Chrome, con datos reales: crear un reto Topstep 50K, ver el panel, la línea de pérdida máxima, y suspenderlo a propósito con una posición grande.
 

@@ -8,9 +8,9 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 | 1 | Datos históricos | Hecha |
 | 2 | Gráfico y replay | Hecha |
 | 3 | Órdenes y cuenta simulada | Hecha |
-| 4 | Simulador de prop firm | Implementada, en revisión |
-| 5 | Diario y estadísticas | Pendiente |
-| 6 | Backtest automático de estrategias (opcional) | Pendiente |
+| 4 | Simulador de prop firm | Hecha |
+| 5 | Backtest de estrategias | Hecha |
+| 6 | Diario de operaciones manuales | Pendiente |
 | 7 | Pulido | Pendiente |
 
 ---
@@ -100,26 +100,41 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 
 | Spec | Contenido | Estado |
 |---|---|---|
-| 006 | Perfiles de reto, cuentas de reto, reglas, intentos y resumen de cuentas | Implementada, en revisión |
+| 006 | Perfiles de reto, cuentas de reto, reglas, intentos y resumen de cuentas | Hecha |
 
-## Fase 5 · Diario y estadísticas
+## Fase 5 · Backtest de estrategias
 
-**Objetivo:** medir qué funciona y qué no.
+**Objetivo:** saber si una estrategia funciona antes de usarla. El usuario la explica, Claude la escribe en Python, se pasa por el histórico y se ve el resultado en números y en el gráfico, operación por operación.
 
-- Cada trade se puede etiquetar con estrategia y setup, y se le pueden añadir notas y una captura del gráfico.
-- Métricas: % de acierto, R medio, esperanza matemática, profit factor, drawdown máximo y rachas.
-- Filtros por estrategia, instrumento, sesión, día de la semana y periodo.
-- Curva de capital.
+- Estrategias en Python en `estrategias/`, con parámetros que se cambian desde la interfaz.
+- Usan el mismo motor de órdenes de la fase 3, con las mismas reglas de ejecución y costes, y nunca ven velas futuras.
+- Resultados: % de acierto, beneficio, profit factor, esperanza, R, drawdown, rachas, curva de capital y desglose por año, sesión, día de la semana y lado, con filtros.
+- Modo backtest en el gráfico: recorrer las operaciones con su entrada, salida, SL, TP y lo que dibuje la estrategia para explicarse.
+- Historial de ejecuciones para comparar parámetros e instrumentos.
 
-**Hecho cuando:** se puede responder "¿qué % de acierto tiene mi estrategia X en NQ durante la sesión de NY en 2024?".
+**Hecho cuando:** se puede responder "¿qué % de acierto tiene la estrategia X en NQ durante la sesión de NY en 2024?" y ver esas operaciones en el gráfico.
 
-## Fase 6 · Backtest automático (opcional)
+**Cambio de plan (2026-10-16):** era la fase 6 opcional. El usuario aclaró que esto es lo que buscaba con "estrategias", así que pasa a la fase 5 y el diario manual va a la fase 6. Las estrategias las escribe Claude a partir de la explicación del usuario, y el usuario las retoca a mano.
 
-**Objetivo:** probar estrategias definidas por reglas sin operar a mano.
+| Spec | Contenido | Estado |
+|---|---|---|
+| 008 | Backtest de estrategias escritas en Python, resultados y modo backtest en el gráfico | Hecha |
+| 009 | Backtest con las reglas de un reto de prop firm: intentos encadenados y % de aprobados | Implementada; falta que la pruebe el usuario |
 
-- Estrategias escritas en Python que usan el mismo motor de órdenes de la fase 3.
-- Se ejecutan sobre el histórico, pueden pasar por los perfiles de prop firm de la fase 4 y generan las estadísticas de la fase 5.
-- Comparar los resultados del backtest con los del trading manual de la misma estrategia.
+## Fase 6 · Diario de operaciones manuales
+
+**Objetivo:** medir el trading manual del replay: etiquetas, notas y capturas en cada operación, y estadísticas con filtros. Se parte del borrador de la spec 007, revisado para que una operación manual pueda llevar una estrategia de `estrategias/` y compararse con su backtest.
+
+| Spec | Contenido | Estado |
+|---|---|---|
+| 007 | Diario manual: estrategia, etiquetas, notas, capturas y estadísticas | Borrador, por revisar |
+
+- Pasar el backtest por las reglas de un reto de prop firm (fase 4) y comparar el backtest con el trading manual de la misma estrategia también encajan aquí o después de la fase 5.
+
+**Ampliaciones del backtest** (le gustan al usuario, 2026-10-17; sin spec todavía):
+
+- ~~Pasar un backtest por las reglas de un reto de prop firm~~: hecho en la spec 009.
+- Optimizar parámetros probando combinaciones, con un periodo de prueba aparte para no engañarse.
 
 ## Fase 7 · Pulido
 

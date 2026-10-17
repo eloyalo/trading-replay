@@ -5,10 +5,10 @@ endpoints síncronos en varios hilos).
 """
 
 import threading
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 
 from trading_replay import replay
-from trading_replay.operativa import bd, perfiles, reto
+from trading_replay.operativa import bd, perfiles, reto, vigilancia
 from trading_replay.operativa.bd import Cuenta
 from trading_replay.operativa.contratos import CONTRATOS
 from trading_replay.operativa.motor import COMPRA, Costes, Ejecucion, Minuto, Motor, Orden, OrdenNoValida
@@ -18,7 +18,7 @@ from trading_replay.replay import SesionReplay
 
 BALANCE_DEMO = 50_000.0
 CAMPOS_COSTES = ("spread_ticks", "deslizamiento_ticks", "comision_mini", "comision_micro")
-REAPERTURA = time(18, 0)  # ET: después de la pausa diaria se puede volver a operar (spec 006, RF-12)
+REAPERTURA = vigilancia.REAPERTURA
 
 cerrojo = threading.RLock()
 
@@ -261,108 +261,30 @@ def terminar_dia(sesion: SesionReplay | None) -> None:
         bd.guardar(_e().con, "retos", estado, clave=("cuenta",))
 
 
+# La vigilancia está en `vigilancia.py`, común con el backtest (spec 009). Aquí se aplica a la cuenta activa
+# y sus eventos van a la lista que recoge el frontend.
+
+
 def _validar_en_reto(activo: tuple[EstadoReto, Perfil], m: Motor, orden: Orden, instante: datetime) -> None:
-    estado, perfil = activo
-    if estado.estado != EN_CURSO:
-        raise OrdenNoValida(f"El reto está {'aprobado' if estado.estado == reto.APROBADO else 'suspendido'}: {estado.motivo}")
-    if estado.bloqueo == LIMITE_DIARIO:
-        raise OrdenNoValida("Límite diario alcanzado: podrás operar en el siguiente salto")
-    cerrado = estado.bloqueo == HORA_CIERRE and estado.bloqueo_hasta and instante < estado.bloqueo_hasta
-    if cerrado or (perfil.hora_cierre and perfil.hora_cierre <= instante.time() < REAPERTURA):
-        raise OrdenNoValida(f"Fuera del horario del reto: se puede operar desde las {REAPERTURA:%H:%M}")
-    if perfil.contratos_maximos and orden.papel == "entrada":
-        # Como si se ejecutaran todas las entradas pendientes y la nueva (RF-11).
-        posiciones = {c: p.cantidad for c, p in m.posiciones.items()}
-        for o in [*m.ordenes, orden]:
-            if o.papel == "entrada" and o.estado == "pendiente":
-                posiciones[o.contrato] = posiciones.get(o.contrato, 0) + o.lado * o.cantidad
-        if reto.contratos_en_uso(posiciones) > perfil.contratos_maximos:
-            maximo = f"{perfil.contratos_maximos:g}"
-            raise OrdenNoValida(f"El reto permite {maximo} contratos como mucho (o {maximo}0 micros)")
+    vigilancia.validar_orden(*activo, m, orden, instante)
 
 
-def _recta_balance(m: Motor, simbolo: str) -> tuple[float, float]:
-    """Balance en vivo como recta en el BID de `simbolo`: los demás instrumentos, quietos en su último precio."""
-    constante, pendiente = m.balance, 0.0
-    for posicion in m.posiciones.values():
-        if not posicion.cantidad:
-            continue
-        if CONTRATOS[posicion.contrato].simbolo == simbolo:
-            c, k = m.recta_pnl(posicion)
-            constante, pendiente = constante + c, pendiente + k
-        else:
-            constante += m.pnl_abierto(posicion)
-    return constante, pendiente
-
-
-def _tick(simbolo: str) -> float:
-    return next(c.tick for c in CONTRATOS.values() if c.simbolo == simbolo)
-
-
-def _liquidar_a(m: Motor, simbolo: str, minuto: Minuto, bid: int) -> None:
-    """Cierra todo con el BID de `simbolo` en `bid` ticks, dentro de `minuto`; los demás, a su último precio."""
-    anterior = m.ultimo.get(simbolo)
-    precio = bid * _tick(simbolo)
-    m.ultimo[simbolo] = Minuto(minuto.inicio, minuto.open, minuto.high, minuto.low, precio)
-    m.liquidar(minuto.inicio)
-    if anterior is not None:
-        m.ultimo[simbolo] = anterior
+def _avisar(evento: dict | None) -> bool:
+    if evento:
+        _e().eventos.append(evento)
+    return evento is not None
 
 
 def _hora_de_cierre(activo: tuple[EstadoReto, Perfil], simbolo: str, minuto: Minuto) -> bool:
-    """A la hora de cierre del perfil se cierra todo en la apertura del minuto (RF-12)."""
-    estado, perfil = activo
-    if not perfil.hora_cierre or estado.estado != EN_CURSO:
-        return False
-    if not perfil.hora_cierre <= minuto.inicio.time() < REAPERTURA or not motor().hay_exposicion():
-        return False
-    _liquidar_a(motor(), simbolo, minuto, round(minuto.open / _tick(simbolo)))
-    estado.bloqueo = HORA_CIERRE
-    estado.bloqueo_hasta = datetime.combine(minuto.inicio.date(), REAPERTURA)
-    hora = f"{perfil.hora_cierre:%H:%M}"
-    _e().eventos.append(
-        {"tipo": "hora_cierre", "mensaje": f"Hora de cierre del reto ({hora} ET): se ha cerrado todo. Se puede volver a operar a las 18:00."}
-    )
-    return True
+    return _avisar(vigilancia.hora_de_cierre(*activo, motor(), simbolo, minuto))
 
 
 def _vigilar(activo: tuple[EstadoReto, Perfil], simbolo: str, minuto: Minuto) -> bool:
-    """Pérdida máxima y límite diario en el peor precio del minuto; después, el pico con el mejor (RF-6 a RF-8)."""
-    estado, perfil = activo
-    if estado.estado != EN_CURSO:
-        return False
-    m = motor()
-    nivel, regla = reto.nivel_liquidacion(estado, perfil)
-    constante, pendiente = _recta_balance(m, simbolo)
-    tick = _tick(simbolo)
-    bajo, alto = round(minuto.low / tick), round(minuto.high / tick)
-    peor, mejor = (bajo, alto) if pendiente >= 0 else (alto, bajo)
-    if constante + pendiente * peor <= nivel:
-        ruptura = reto.precio_ruptura(nivel, constante, pendiente)
-        if ruptura is not None:
-            apertura = round(minuto.open / tick)
-            if pendiente > 0:
-                bid = apertura if apertura <= ruptura else max(ruptura, bajo)
-            else:
-                bid = apertura if apertura >= ruptura else min(ruptura, alto)
-            _liquidar_a(m, simbolo, minuto, bid)
-        _e().eventos.append(reto.romper(estado, perfil, regla, m.balance, minuto.inicio))
-        return True
-    reto.actualizar_pico(estado, perfil, constante + pendiente * mejor)
-    return False
+    return _avisar(vigilancia.vigilar(*activo, motor(), simbolo, minuto))
 
 
 def _vigilar_ahora(activo: tuple[EstadoReto, Perfil], instante: datetime) -> None:
-    """Tras una ejecución en el acto: comprueba las reglas con el precio actual."""
-    estado, perfil = activo
-    m = motor()
-    vivo = m.balance + sum(m.pnl_abierto(p) for p in m.posiciones.values() if p.cantidad)
-    nivel, regla = reto.nivel_liquidacion(estado, perfil)
-    if vivo <= nivel:
-        m.liquidar(instante)
-        _e().eventos.append(reto.romper(estado, perfil, regla, m.balance, instante))
-    else:
-        reto.actualizar_pico(estado, perfil, vivo)
+    _avisar(vigilancia.vigilar_ahora(*activo, motor(), instante))
 
 
 # --- Cuentas ---
@@ -610,9 +532,9 @@ def _reto_api(
     liquidacion = {}
     if m and hoy:
         for simbolo in {CONTRATOS[p.contrato].simbolo for p in m.posiciones.values() if p.cantidad}:
-            ruptura = reto.precio_ruptura(nivel, *_recta_balance(m, simbolo))
+            ruptura = reto.precio_ruptura(nivel, *vigilancia.recta_balance(m, simbolo))
             if ruptura is not None:
-                liquidacion[simbolo] = round(ruptura * _tick(simbolo), 2)
+                liquidacion[simbolo] = round(ruptura * vigilancia.tick_de(simbolo), 2)
     bloqueo = None
     if hoy and estado.bloqueo == LIMITE_DIARIO:
         bloqueo = "Límite diario alcanzado: podrás operar en el siguiente salto"

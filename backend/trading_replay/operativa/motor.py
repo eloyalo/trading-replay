@@ -155,6 +155,8 @@ class Motor:
         self._ejecuciones: list[Ejecucion] = []
         self._operaciones_tocadas: dict[str, Operacion] = {}
         self._posiciones_tocadas: set[str] = set()
+        # Órdenes de SL que ganaron a su TP por caer los dos en el mismo minuto (spec 008, RF-8).
+        self.dudosas: set[str] = set()
 
     # --- Consultas ---
 
@@ -322,7 +324,9 @@ class Motor:
         en_apertura = [p for p in posibles if p[2]]
         if len(en_apertura) == 1:
             return en_apertura[0]
-        return next(p for p in posibles if p[0].papel == "sl")
+        elegida = next(p for p in posibles if p[0].papel == "sl")
+        self.dudosas.add(elegida[0].id)
+        return elegida
 
     def _precio_si_ejecuta(self, orden: Orden, minuto: Minuto) -> tuple[float, bool] | None:
         """Precio de ejecución en este minuto y si es en la apertura, o None si no se ejecuta."""

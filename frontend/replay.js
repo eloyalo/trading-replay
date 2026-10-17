@@ -384,4 +384,5 @@ async function prepararReplay() {
   else actualizarControles();
   await prepararOperativa(); // operativa.js
   prepararRetos(); // retos.js
+  await prepararBacktest(); // backtest.js
 }

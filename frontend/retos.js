@@ -234,6 +234,7 @@ function lanzarConfeti(lienzo) {
 async function abrirResumen() {
   const ventana = $("ventana-cuentas");
   $("cuentas-aviso").textContent = "";
+  mostrarNuevaCuenta(false);
   if (!ventana.open) ventana.showModal();
   await pintarResumen();
 }
@@ -256,6 +257,38 @@ async function usarCuenta(id) {
     $("cuentas-aviso").textContent = error.message;
   }
   await pintarResumen();
+  await mostrarCuentas(); // operativa.js: selector de cuenta del panel de operar
+  await refrescarCuenta();
+}
+
+// Nueva cuenta desde el resumen (RF-22): la crea, la deja activa y la enseña en la lista.
+function mostrarNuevaCuenta(visible) {
+  const formulario = $("resumen-nueva");
+  formulario.hidden = !visible;
+  $("boton-nueva-cuenta").setAttribute("aria-expanded", String(visible));
+  if (!visible) return;
+  formulario.reset();
+  $("resumen-nueva-tipo").dispatchEvent(new Event("change"));
+  $("resumen-nueva-tipo").focus();
+}
+
+async function crearDesdeResumen() {
+  const aviso = $("cuentas-aviso");
+  const cuerpo = cuerpoNuevaCuenta("resumen-nueva"); // operativa.js
+  if (!cuerpo) {
+    aviso.textContent = "La cuenta nueva necesita nombre y balance inicial";
+    return;
+  }
+  try {
+    await pedir("/api/cuentas", "POST", cuerpo); // operativa.js
+  } catch (error) {
+    aviso.textContent = error.message;
+    return;
+  }
+  aviso.textContent = "";
+  mostrarNuevaCuenta(false);
+  await pintarResumen();
+  document.querySelector("#tarjetas-cuentas .tarjeta--activa")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   await mostrarCuentas(); // operativa.js: selector de cuenta del panel de operar
   await refrescarCuenta();
 }
@@ -351,10 +384,9 @@ function seccionesReto(r, intentos) {
   return piezas;
 }
 
-// --- Tipo de cuenta nueva (RF-3) ---
+// --- Tipo de cuenta nueva (RF-3), en el panel de operar y en el resumen de cuentas ---
 
 async function prepararTiposDeCuenta() {
-  const selector = $("nueva-tipo");
   let lista;
   try {
     lista = await api("/api/perfiles");
@@ -363,22 +395,31 @@ async function prepararTiposDeCuenta() {
     return;
   }
   const porEmpresa = Map.groupBy(lista, (p) => p.empresa);
-  for (const [empresa, deEmpresa] of porEmpresa) {
-    const grupo = document.createElement("optgroup");
-    grupo.label = empresa;
-    grupo.append(...deEmpresa.map((p) => new Option(`${p.nombre} · ${formatoSaldo(p.balance_inicial)}`, p.id)));
-    selector.append(grupo);
+  for (const prefijo of ["nueva", "resumen-nueva"]) {
+    const selector = $(`${prefijo}-tipo`);
+    for (const [empresa, deEmpresa] of porEmpresa) {
+      const grupo = document.createElement("optgroup");
+      grupo.label = empresa;
+      grupo.append(...deEmpresa.map((p) => new Option(`${p.nombre} · ${formatoSaldo(p.balance_inicial)}`, p.id)));
+      selector.append(grupo);
+    }
+    selector.addEventListener("change", () => {
+      const perfil = lista.find((p) => p.id === selector.value);
+      $(`${prefijo}-balance`).disabled = Boolean(perfil);
+      $(`${prefijo}-balance`).value = perfil ? perfil.balance_inicial : 50000;
+      $(`${prefijo}-nombre`).placeholder = perfil ? perfil.titulo : "Reto 50k";
+    });
   }
-  selector.addEventListener("change", () => {
-    const perfil = lista.find((p) => p.id === selector.value);
-    $("nueva-balance").disabled = Boolean(perfil);
-    $("nueva-balance").value = perfil ? perfil.balance_inicial : 50000;
-    $("nueva-nombre").placeholder = perfil ? perfil.titulo : "Reto 50k";
-  });
 }
 
 function prepararRetos() {
   $("boton-resumen-cuentas").addEventListener("click", abrirResumen);
+  $("boton-nueva-cuenta").addEventListener("click", () => mostrarNuevaCuenta($("resumen-nueva").hidden));
+  $("cancelar-nueva-cuenta").addEventListener("click", () => mostrarNuevaCuenta(false));
+  $("resumen-nueva").addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    crearDesdeResumen();
+  });
   for (const ventana of document.querySelectorAll("dialog.ventana")) {
     // Clic en el fondo oscuro, fuera del recuadro: se cierra.
     ventana.addEventListener("click", (evento) => {

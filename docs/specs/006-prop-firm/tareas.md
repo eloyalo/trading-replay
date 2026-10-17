@@ -10,6 +10,7 @@ Referencia: [plan.md](plan.md)
 - [x] T6: Frontend: tipo de cuenta al crear, panel del reto, línea de liquidación y eventos
 - [x] T7: Frontend: ventana de aprobado con confeti y de suspendido; ventana de resumen de cuentas
 - [x] T8: Pruebas en Chrome con datos reales y criterios de aceptación
+- [x] T9: "Nueva cuenta" en la ventana de "Cuentas" (RF-22, pedido por el usuario al probar)
 
 ## Notas de implementación
 
@@ -23,4 +24,6 @@ Referencia: [plan.md](plan.md)
 - **Comprobado en Chrome con datos reales** (servidor aparte con `TRADING_REPLAY_DATOS` temporal): reto Topstep 50K creado desde los ajustes; venta de 5 NQ a 18661,75 con la línea "Límite diario · se cierra todo" a 18671,50; en play a 300x el límite diario cerró al ASK 18671,75 (−1.000 $ y 25 $ de comisiones), paró el play, avisó y bloqueó las órdenes hasta el siguiente salto. Ventanas de aprobado (con confeti) y de suspendido, "Nuevo intento" (intento 2 con el 1 en el historial), resumen de cuentas fuera y dentro del replay y "Usar" otra cuenta.
 - El aprobado real (al cerrar el día) se comprobó con tests; en Chrome, la ventana se abrió con un evento de prueba.
 - 90 tests de pytest en verde (20 nuevos: 12 de reglas y perfiles y 8 de la API).
+- RF-22: solo frontend; el backend ya creaba cuentas fuera del replay. El formulario de la ventana usa los mismos tipos que el del panel (`prepararTiposDeCuenta` rellena los dos) y la misma lectura (`cuerpoNuevaCuenta(prefijo)` en `operativa.js`). Probado en Chrome: reto Topstep 50K y cuenta libre creados fuera del replay, aviso si falta el nombre y aviso de que hay que cerrar lo abierto con una posición en marcha.
+- **Corregido al probar:** el formulario de la ventana es un `<form>` y el navegador bloqueaba sin avisar el envío de una cuenta libre: con `min="1"` y `step="1000"`, 50.000 no es un valor válido para la validación HTML. Lleva `novalidate`; la comprobación la hace el código.
 

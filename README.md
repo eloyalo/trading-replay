@@ -6,7 +6,7 @@ Simulador local de trading para practicar sobre datos históricos de NQ (Nasdaq 
 - Herramientas de dibujo e indicadores (medias, VWAP, volumen, RSI, ATR y niveles del día anterior y overnight).
 - Cuentas demo propias con órdenes, SL/TP, comisiones y slippage, que conservan el balance entre replays.
 - Simulación de retos de prop firm (Topstep y DayTraders): pérdida máxima, límite diario, consistencia, objetivo y días mínimos, aplicados en el momento.
-- Diario de trades y estadísticas por estrategia.
+- Backtest de estrategias escritas en Python: se pasan por el histórico con el mismo motor de órdenes, con % de acierto, profit factor, drawdown, desglose por año, sesión y día, y las operaciones una a una en el gráfico. También con las reglas de un reto de prop firm, para ver qué % de intentos aprobaría.
 
 Todo corre en local. Está en desarrollo: el estado de cada fase está en [`docs/FASES.md`](docs/FASES.md).
 
@@ -28,6 +28,8 @@ Después, abre http://127.0.0.1:8000.
 Las cuentas, órdenes y operaciones se guardan en `datos/cuentas.sqlite`. Para empezar de cero, borra ese archivo con el servidor parado.
 
 Las reglas de los retos están en `perfiles/` (un JSON por empresa). Las prop firms cambian sus reglas a menudo: si alguna ya no cuadra, se corrige ese archivo sin tocar el código.
+
+Las estrategias del backtest están en `estrategias/`, un archivo Python cada una. Cómo se escriben: [`estrategias/LEEME.md`](estrategias/LEEME.md). El historial de backtests se guarda en `datos/backtests.sqlite`, aparte de las cuentas.
 
 ## Documentación
 
