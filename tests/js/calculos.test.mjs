@@ -228,3 +228,16 @@ test("SL y TP en dólares: el SL hacia dentro, el TP hacia fuera y un tick como 
   assert.equal(c.dolaresDesdePuntos(10, dosNQ), 400);
   assert.equal(c.dolaresDesdePuntos(3.7, unMGC), 37);
 });
+
+test("Fibonacci: retrocesos y extensiones de un impulso al alza (spec 012)", () => {
+  const precios = (niveles) => niveles.map((n) => n.precio);
+  assert.deepEqual(precios(c.fibonacciNiveles(100, 200, [0, 0.618, 0.786, 1])), [200, 138.2, 121.4, 100]);
+  assert.deepEqual(precios(c.fibonacciExtensiones(100, 200, [1, 1.272, 1.618, 2.618])), [200, 227.2, 261.8, 361.8]);
+});
+
+test("Fibonacci: el impulso a la baja da los niveles simétricos", () => {
+  const precios = (niveles) => niveles.map((n) => n.precio);
+  assert.deepEqual(precios(c.fibonacciNiveles(200, 100, [0, 0.618, 0.786, 1])), [100, 161.8, 178.6, 200]);
+  assert.deepEqual(precios(c.fibonacciExtensiones(200, 100, [1.618])), [38.2]);
+  assert.equal(c.fibonacciNiveles(200, 100, [0.5])[0].valor, 0.5);
+});

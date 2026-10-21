@@ -11,6 +11,7 @@ from datetime import datetime
 
 from trading_replay.backtest import almacen_bt, ejecutor, metricas
 from trading_replay.backtest.cargador import ErrorEstrategia, InfoEstrategia
+from trading_replay.backtest.estrategia import timeframe_de
 from trading_replay.operativa.motor import Costes
 from trading_replay.operativa.perfiles import Perfil
 
@@ -74,7 +75,7 @@ def lanzar(
             "codigo": info.codigo,
             "parametros": valores,
             "simbolo": simbolo,
-            "timeframe": info.clase.timeframe,
+            "timeframe": timeframe_de(info.clase, valores),
             "desde": desde,
             "hasta": hasta,
             "costes": vars(costes),

@@ -58,6 +58,7 @@
     <span id="bt-operacion" class="bt-operacion"></span>
     <span id="bt-aviso" class="aviso"></span>
     <div class="grupo">
+      <button id="bt-copiar-fibonacci" title="Pasa el Fibonacci de esta operación a tus dibujos, para retocarlo o dejarlo guardado" hidden>Copiar Fibonacci como dibujo</button>
       <button id="bt-resultados" title="Volver a los resultados">Resultados</button>
       <button id="bt-salir" title="Volver al gráfico normal (Esc)">Salir del backtest</button>
     </div>
@@ -75,6 +76,9 @@
       </button>
       <button data-herramienta="rectangulo" title="Rectángulo (B)" aria-label="Rectángulo">
         <svg viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="10"/></svg>
+      </button>
+      <button data-herramienta="fibonacci" title="Fibonacci (F)" aria-label="Fibonacci">
+        <svg viewBox="0 0 20 20"><path d="M3 4h14M3 8h14M3 12h14M3 16h14"/></svg>
       </button>
       <span class="separador"></span>
       <button id="borrar-dibujo" title="Borrar el dibujo seleccionado (Supr)" aria-label="Borrar el dibujo seleccionado">

@@ -581,6 +581,9 @@ body.en-replay #boton-backtest { opacity: 0.4; pointer-events: none; }
 }
 .bt-parametros { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 12px; }
 .bt-parametros label { display: flex; flex-direction: column; gap: 2px; color: var(--gris); font-size: 12px; }
+.bt-grupo { grid-column: 1 / -1; border: 1px solid var(--borde, #333); border-radius: 6px; padding: 6px 10px; }
+.bt-grupo summary { cursor: pointer; font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+.bt-grupo[open] summary { margin-bottom: 8px; }
 .bt-parametros label.bt-casilla { flex-direction: row; align-items: center; gap: 6px; color: var(--texto); }
 .bt-lanzador { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .bt-progreso { flex: 1; display: flex; align-items: center; gap: 8px; }
@@ -668,3 +671,34 @@ body.en-replay #boton-backtest { opacity: 0.4; pointer-events: none; }
 .bt-tabla--intentos th:nth-child(4) { text-align: left; }
 .bt-sin-reto .solo-reto { display: none; }
 .bt-reto-historial { display: block; margin-top: 2px; color: var(--ambar); font-size: 12px; }
+
+/* --- Panel de la herramienta Fibonacci (spec 012) --- */
+
+.panel-fibonacci {
+  position: absolute;
+  top: 8px;
+  right: 64px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.panel-fibonacci[hidden] { display: none; }
+.panel-fibonacci label { cursor: pointer; white-space: nowrap; }
+.panel-fibonacci input[type="number"] {
+  width: 130px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  background: var(--fondo);
+  color: var(--texto);
+  font: inherit;
+}

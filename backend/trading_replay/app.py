@@ -13,6 +13,7 @@ from trading_replay import __version__, replay
 from trading_replay.backtest import almacen_bt, cargador, metricas, trabajos
 from trading_replay.backtest.estrategia import ParametroNoValido, valores_parametros
 from trading_replay.config import INSTRUMENTOS
+from trading_replay.estudio import escena as estudio_escena
 from trading_replay.historico import almacen
 from trading_replay.operativa import perfiles, servicio
 from trading_replay.operativa.perfiles import PerfilNoValido
@@ -605,9 +606,23 @@ def ver_tramo_backtest(
                 "precio": m.precio,
                 "precio2": m.precio2,
                 "texto": m.texto,
+                "datos": _datos_marca(m),
             }
             for m in almacen_bt.marcas(id_ejecucion, desde, hasta)
         ],
+    }
+
+
+def _datos_marca(marca) -> dict | None:
+    """Los datos de una marca `fibonacci`, con los instantes en el reloj del gráfico."""
+    if not marca.datos:
+        return None
+    return {
+        **marca.datos,
+        **{
+            punto: {"t": metricas.segundos_grafico(datetime.fromisoformat(marca.datos[punto]["instante"])), "precio": marca.datos[punto]["precio"]}
+            for punto in ("origen", "final")
+        },
     }
 
 
@@ -627,4 +642,17 @@ def borrar_backtest(id_ejecucion: int) -> dict:
 
 
 # Se monta al final para que no tape las rutas de /api.
+# --- Estudio (spec 010) ---
+
+
+@app.post("/api/estudio/preparar")
+def estudio_preparar(escena: dict) -> dict:
+    """Valida una escena del Estudio y la devuelve con las velas y los tiempos en segundos.
+    Lee el histórico sin el recorte del replay: el Estudio no ve ni toca la sesión de replay."""
+    try:
+        return estudio_escena.preparar(escena)
+    except estudio_escena.EscenaNoValida as error:
+        raise HTTPException(422, detail=[{"msg": e} for e in error.errores]) from error
+
+
 app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")

@@ -249,6 +249,23 @@ function dolaresDesdePuntos(puntos, { multiplicador, tick, cantidad }) {
   return (ticks * Math.round(multiplicador * tick * cantidad * 100)) / 100;
 }
 
+// --- Fibonacci (spec 012) ---
+// El impulso va de `origen` a `final` en cualquier sentido. El nivel 0 es el final y el 1 es el origen,
+// así que un retroceso `r` queda a esa fracción del impulso desde el final hacia el origen. Una
+// extensión `e` se mide desde el origen (1 es el final, 1,618 está más allá), como en la herramienta.
+
+const redondear2 = (x) => Math.round(x * 100) / 100;
+
+function fibonacciNiveles(origen, final, niveles) {
+  const impulso = final - origen;
+  return niveles.map((valor) => ({ valor, precio: redondear2(final - impulso * valor) }));
+}
+
+function fibonacciExtensiones(origen, final, niveles) {
+  const impulso = final - origen;
+  return niveles.map((valor) => ({ valor, precio: redondear2(origen + impulso * valor) }));
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     MINUTOS_TF,
@@ -263,5 +280,7 @@ if (typeof module !== "undefined") {
     logicoATiempo,
     puntosDesdeDolares,
     dolaresDesdePuntos,
+    fibonacciNiveles,
+    fibonacciExtensiones,
   };
 }

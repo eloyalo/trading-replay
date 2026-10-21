@@ -14,6 +14,8 @@ Este archivo es la memoria del proyecto. Se lee al empezar cada sesión de traba
   3. Que el usuario mire la **Danny strategy v1** (`estrategias/danny.py`) en el gráfico y diga qué no se parece a lo que hace Danny. Siguiente versión posible: splits y desequilibrios, trampas en el 50 % y objetivos en el siguiente nivel.
   4. Después: optimización de parámetros (le gusta; sin spec todavía) o la fase 6 (diario manual, partiendo del borrador de la spec 007).
 - **Recordatorio para el usuario:** reiniciar el servidor tras cada cambio del backend (`./iniciar.sh` no recarga solo). El 405 al borrar cuentas del 2026-10-16 era un servidor arrancado antes de añadir esas rutas.
+- **Specs 010 (Estudio) y 011 (widgets: libro de órdenes y cotización) implementadas el 2026-10-18**, pendiente de que el usuario la pruebe en http://127.0.0.1:8000/estudio.html (reiniciar antes el servidor).
+- **Spec 012 (estrategias EMA pullback y Fibonacci, y herramienta Fibonacci del gráfico) implementada el 2026-10-21**, pendiente de que el usuario la pruebe: en la ventana Backtest, `EMA pullback` y `Fibonacci` (reiniciar antes el servidor), y la herramienta con la tecla `f` en el gráfico.
 - **Pendiente menor:** GC 2022-10-20 da 503 siempre en Dukascopy. Se reintenta solo con `datos descargar`.
 
 ## Qué hay hecho
@@ -42,10 +44,15 @@ backend/trading_replay/
   backtest/indicadores.py ← los indicadores de calculos.js en Python (mismo cálculo paso a paso)
   backtest/cargador.py    ← carga, recarga y duplica estrategias; errores con archivo y línea
   backtest/ejecutor.py    ← bucle por velas del timeframe, MotorBacktest (SL/TP en precio o en R), operaciones y marcas
+  backtest/comunes.py     ← parámetros y `Operativa` para estrategias con muchas variantes: sesión, lados, límites, tramos, parcial, break-even, trailing y cierre forzoso (spec 012)
+  backtest/swings.py      ← pivotes de n velas (llegan n velas tarde) y zigzag, sin mirar al futuro (spec 012)
   backtest/metricas.py    ← métricas, curva, desglose y filtros, puras
   backtest/almacen_bt.py  ← SQLite del historial (datos/backtests.sqlite)
   backtest/trabajos.py    ← el backtest en marcha, en un hilo, con progreso y cancelación
   backtest/reto_bt.py     ← un reto dentro del backtest: días de trading, intentos encadenados, órdenes rechazadas
+  estudio/acciones.py     ← acciones y ETF de Dukascopy bajo demanda (caché en datos/estudio/), splits, agregación
+  estudio/escena.py       ← escenas del Estudio: validación con mensajes por paso y resolución de datos
+  estudio/captura.py      ← servidor propio + Chrome sin interfaz (DevTools) + ffmpeg: PNG y MP4
   config.py               ← rutas, instrumentos (símbolo, código Dukascopy, cierre diario), FECHA_INICIO
   cli.py                  ← `trading-replay datos descargar|construir|huecos`
   historico/dukascopy.py  ← descarga (keep-alive, 6 hilos, reintentos) y decodificación .bi5
@@ -55,13 +62,16 @@ frontend/                 ← sin compilación; los scripts se cargan en este or
   calculos.js             ← funciones puras: cubeta(), indicadores, cálculo incremental, tiempo ↔ índice lógico
   app.js                  ← gráfico, carga de velas, selector de instrumento y timeframe
   indicadores.js          ← series de indicadores, panel de configuración y leyenda
-  dibujo.js               ← herramientas de dibujo (primitiva de Lightweight Charts)
+  dibujo.js               ← herramientas de dibujo (primitiva de Lightweight Charts): horizontal, tendencia, rectángulo y Fibonacci; `pintarFibonacci` también la usa el modo backtest
   operativa.js            ← panel de operar, líneas de órdenes arrastrables, marcas de ejecuciones, cuentas
   replay.js               ← barra de replay, play, movimiento simulado, modo a ciegas y atajos
   retos.js                ← panel del reto, ventanas de aprobado/suspendido con confeti, resumen de cuentas
   backtest.js             ← ventana "Backtest" (lanzar, resultados, historial) y modo backtest del gráfico
+  estudio.html/.css/.js   ← página aparte del Estudio (spec 010): reloj determinista, capa de dibujo, pincel
+  estudio_calculos.js     ← funciones puras del Estudio (progreso, vela en formación, cámara, órdenes en el libro), con tests en Node
+  estudio_widgets.js      ← widgets del Estudio (spec 011): cotización, libro de órdenes y comparación
 perfiles/                 ← reglas de los retos, un JSON por empresa (Topstep, DayTraders)
-estrategias/              ← estrategias del backtest, un .py cada una, y LEEME.md con la guía
+estrategias/              ← estrategias del backtest, un .py cada una (ruptura_rango, cruce_medias, danny, ema_pullback, fibonacci), y LEEME.md con la guía
 tests/                    ← pytest; conftest.py crea datos sintéticos en una carpeta temporal
 tests/js/                 ← tests de Node de calculos.js, lanzados desde tests/test_frontend.py
 datos/                    ← fuera de git: crudo/, velas/, huecos/
@@ -91,6 +101,10 @@ datos/                    ← fuera de git: crudo/, velas/, huecos/
 - `backtests.sqlite` se migra solo al abrirlo (`almacen_bt.COLUMNAS_NUEVAS`): para añadir una columna, se añade ahí.
 - Backtest y replay no van a la vez: `POST /api/replay` da 409 con un backtest en marcha y `POST /api/backtests` con un replay activo. El modo backtest del gráfico carga hasta `estado.ancla` en vez de hasta el final, y es el único caso en que se carga hacia la derecha.
 - Las sesiones (Asia, Londres, Nueva York) están en constantes de `almacen.py`, compartidas por el Parquet, el momento aleatorio y el desglose del backtest.
+- Estrategias con muchas variantes (spec 012): el `timeframe` puede ser un parámetro con `opciones`; `Parametro(grupo=...)` agrupa el formulario en secciones plegables; una `Marca` puede llevar `datos` (JSON, solo la `fibonacci`) y su `fin` lo pone la estrategia. Los pivotes se confirman n velas después de formarse. La entrada escalonada de Fibonacci va sin parciales.
+- Fibonacci (spec 012): el retroceso de un swing vivo no lo sustituye por un impulso nuevo; un swing descartado no vuelve; la edad máxima del swing es en velas de los pivotes. Cada tramo de bajada tras un máximo es a su vez un impulso (usar «solo largos» o «solo cortos» para aislar un sentido).
+- Estudio: no usa `app.js` ni el estado del replay. `POST /api/estudio/preparar` lee el histórico sin el recorte del replay. Los pasos se pintan en un `<canvas>` encima del gráfico a partir de `t`; nada depende de `requestAnimationFrame` (RF-7). La captura arranca su propio servidor con `lifespan="off"` para no tocar cuentas ni replay.
+- Estudio: los precios de acciones de Dukascopy no están ajustados por splits; la tabla `SPLITS` de `estudio/acciones.py` se mantiene a mano.
 - Para probar la interfaz sin la extensión de Chrome: Chrome headless (`--remote-debugging-port`) y un script de Node que habla DevTools por WebSocket (ver notas de la T9 de la 008).
 
 ## Cómo arrancar
@@ -118,6 +132,37 @@ Practicar trading manual sobre histórico de NQ, ES y oro, simulando cuentas dem
 ## Bitácora
 
 Entradas nuevas arriba. Anotar lo que se ha hecho, lo que se ha probado y lo que se ha aprendido (problemas, limitaciones, cambios de idea).
+
+### 2026-10-21 (2)
+- Spec 012 implementada entera (T1 a T11) por delegación del usuario («haz todo»). 229 tests en verde. Parte de los trabajos se hizo con subagentes Sonnet (`medium`): la herramienta Fibonacci del frontend y la prueba en Chrome headless.
+- **Hecho:** herramienta Fibonacci (`f`), timeframe elegible, parámetros agrupados, `comunes.py`, `swings.py`, `estrategias/ema_pullback.py` y `estrategias/fibonacci.py` con sus variantes, marca `fibonacci` guardada en `backtests.sqlite` y pintada en el modo backtest con «Copiar Fibonacci como dibujo».
+- **Con 4 años de NQ y valores por defecto (solo para ver que corre):** EMA pullback 2.037 operaciones, 35,1 % de acierto, +10.225 $, 6,4 s; Fibonacci 711 operaciones, 26,6 % de acierto, +45.025 $, 2,4 s. No se han estudiado.
+- **Descubierto al probar la entrada por rechazo de Fibonacci:** el pivote bajo del retroceso se confirma en la vela del rebote y el tramo de bajada, que es otro impulso, sustituía al swing antes de entrar. Corregido (ver convenciones).
+- **Descubierto, anterior a esta spec:** en Chrome headless, tras cambiar de timeframe en el modo backtest (y a veces en la primera operación), el rango visible acaba al final de los datos aunque `centrarOperacion` calcula bien. Pasa igual con el frontend del último commit; por comprobar en el Chrome normal.
+- **Cambio pedido por el usuario al probarla:** las líneas de la herramienta Fibonacci llegan hasta el último punto del dibujo (casilla «Extender a la derecha» para el final visible).
+- **Pendiente de la 012:** ver el dibujo copiado en el gráfico normal.
+
+### 2026-10-21
+- El usuario pide dos estrategias más: **EMA pullback** y **Fibonacci**, con todas las variantes posibles como parámetros y la sesión elegible. Investigadas en la web (solo hay reglas de scripts de TradingView, sin una versión canónica).
+- Spec 012 escrita y **aprobada por el usuario** (incluye la herramienta Fibonacci del gráfico manual y verla después en el modo backtest). Plan y tareas (T1 a T11) escritos. No se ha tocado código.
+- **Descubierto:** el `timeframe` de una estrategia es un atributo fijo de la clase, no un parámetro; la spec 012 (RF-1) propone hacerlo elegible al lanzar.
+
+### 2026-10-18 (3)
+- Spec 011 (widgets del Estudio) escrita, aprobada por delegación e implementada: `widget` en la escena (`cotizacion`, `libro`, `comparar_libros`), pasos `orden`, `foco` y `ocultar`, cálculo puro en `estudio_calculos.js` (`ejecutar`, `libroEn`) y dibujo en `estudio_widgets.js`. 156 tests en verde.
+- **Decidido por Claude:** las asks se pintan con la mejor abajo junto al spread; cada orden parte del libro que dejó la anterior; los tramos de una orden con el mismo `grupo` se muestran como una sola.
+
+### 2026-10-18 (2)
+- El usuario aprueba la spec 010 y pide añadir acciones de Dukascopy si se puede. Comprobado que existen (`NVDAUSUSD`, `SPYUSUSD`...) con 1m, 1h y 1D; se descargan bajo demanda solo para el Estudio (RF-4 nuevo).
+- Spec 010 implementada entera (T1 a T7): `estudio/` en el backend, `/estudio.html`, `trading-replay estudio validar|capturar` y 15 tests nuevos (152 en verde). Detalle en las notas de `tareas.md`.
+- **Decidido por Claude:** dibujar en un canvas propio encima del gráfico; tema oscuro neutro por defecto; tiempos de escena también como índice de vela (con decimales para el pincel); velas inventadas con fechas ficticias desde 2001-01-01 y eje de tiempo oculto.
+- **Descubierto:** el volumen del CFD de acciones no cambia con los splits; Dukascopy da las acciones solo en sesión regular.
+- `websockets` pasa a ser dependencia explícita (ya venía con `uvicorn[standard]`).
+
+### 2026-10-18
+- Sesión desde el proyecto `Canal Trading` (canal de YouTube en inglés que usará este simulador para sus gráficos). El usuario pide un apartado aparte, el **Estudio**, para montar gráficos didácticos (velas con los valores exactos de una lección o un caso real de NQ en una fecha), pintarlos como pide el guion, también con pincel, y que la IA los capture en imagen y vídeo.
+- Spec 010 escrita en **borrador**, pendiente de que el usuario la apruebe. Nueva fase 8 en `FASES.md`, en paralelo a las 6 y 7.
+- **Descubierto:** `/api/velas` se recorta al instante del replay; el Estudio necesita leer el histórico sin ese recorte (RF-2 de la 010).
+- No se ha tocado código de este proyecto.
 
 ### 2026-10-17 (5)
 - El usuario ve bien la Danny strategy v1 ("genial") y pide empezar la ampliación del backtest con las reglas de un reto. Spec 009 escrita, aprobada por delegación e implementada (T1 a T5).

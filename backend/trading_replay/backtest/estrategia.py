@@ -55,6 +55,7 @@ class Parametro:
     maximo: float | None = None
     paso: float | None = None
     opciones: tuple | list | None = None
+    grupo: str = ""  # sección plegable del formulario de la app; vacío: va arriba, sin sección
 
     @property
     def tipo(self) -> str:
@@ -103,6 +104,7 @@ class Parametro:
             "maximo": self.maximo,
             "paso": self.paso,
             "opciones": list(self.opciones) if self.opciones is not None else None,
+            "grupo": self.grupo,
         }
 
 
@@ -126,6 +128,13 @@ def valores_parametros(declarados: dict[str, Parametro], elegidos: dict | None) 
     if desconocidos:
         raise ParametroNoValido(f"Parámetros desconocidos: {', '.join(sorted(desconocidos))}")
     return {clave: p.validar(elegidos[clave]) if clave in elegidos else p.defecto for clave, p in declarados.items()}
+
+
+def timeframe_de(clase: type, valores: dict | None) -> str:
+    """El timeframe con que correrá `clase` con estos valores: el elegido si lo trae como parámetro."""
+    if "timeframe" in clase.parametros:
+        return (valores or {}).get("timeframe", clase.parametros["timeframe"].defecto)
+    return clase.timeframe
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,7 +222,10 @@ class Agregador:
 
 
 class Estrategia:
-    """Base de las estrategias. Se rellenan `nombre`, `timeframe`, `parametros` y `al_cerrar_vela`."""
+    """Base de las estrategias. Se rellenan `nombre`, `timeframe`, `parametros` y `al_cerrar_vela`.
+
+    Si `parametros` trae uno llamado `timeframe` (con `opciones`), el timeframe se elige al lanzar y
+    `timeframe` es solo su valor por defecto (spec 012, RF-1)."""
 
     nombre: str = ""
     timeframe: str = "5m"
@@ -221,6 +233,8 @@ class Estrategia:
 
     def __init__(self, valores: dict | None = None):
         self.p = Valores(valores_parametros(self.parametros, valores))
+        if "timeframe" in self.parametros:
+            self.timeframe = self.p.timeframe
         self.velas = VelasCerradas(self.timeframe)
         self._fin = 0  # instante del cierre de la vela actual, en segundos
         self._series: dict[tuple, ind.Serie] = {}
@@ -434,6 +448,18 @@ class Estrategia:
     def rango(self, desde, hasta, alto: float, bajo: float, texto: str = ""):
         """Rectángulo entre dos horas ("HH:MM" del día de trading) y dos precios."""
         self._ejecutor().marcar("rango", self._instante_de(desde), self._instante_de(hasta), alto, bajo, texto)
+
+    def fibonacci(self, origen: tuple, final: tuple, retrocesos=(0.382, 0.5, 0.618, 0.786), extensiones=(1.0, 1.618), texto: str = ""):
+        """Una figura de Fibonacci en el gráfico: `origen` y `final` son (instante, precio) del impulso.
+        Se ve con los retrocesos y las extensiones dados, hasta que se le pone `fin` (`marca.fin = self.instante`);
+        si nadie lo hace, llega hasta el final de los datos. Devuelve la marca."""
+        datos = {
+            "origen": {"instante": origen[0].isoformat(), "precio": origen[1]},
+            "final": {"instante": final[0].isoformat(), "precio": final[1]},
+            "retrocesos": [float(x) for x in retrocesos],
+            "extensiones": [float(x) for x in extensiones],
+        }
+        return self._ejecutor().marcar("fibonacci", origen[0], None, origen[1], final[1], texto, datos)
 
     def texto(self, texto: str, precio: float | None = None):
         """Un texto corto en la vela que acaba de cerrar, a la altura de `precio` (por defecto, su cierre)."""

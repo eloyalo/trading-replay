@@ -86,6 +86,7 @@ COLUMNAS_NUEVAS = [
     ("ejecuciones", "perfil", "TEXT"),
     ("ejecuciones", "reto", "TEXT"),
     ("operaciones", "intento", "INTEGER"),
+    ("marcas", "datos", "TEXT"),  # spec 012: JSON de la marca `fibonacci`
 ]
 
 CAMPOS_OPERACION = (
@@ -161,8 +162,11 @@ def guardar(meta: dict, resultado: Resultado, resumen: dict, reto: dict | None =
                 ],
             )
             con.executemany(
-                "INSERT INTO marcas (ejecucion, tipo, instante, fin, precio, precio2, texto) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [(id_ejecucion, m.tipo, _texto(m.instante), _texto(m.fin), m.precio, m.precio2, m.texto) for m in resultado.marcas],
+                "INSERT INTO marcas (ejecucion, tipo, instante, fin, precio, precio2, texto, datos) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (id_ejecucion, m.tipo, _texto(m.instante), _texto(m.fin), m.precio, m.precio2, m.texto, json.dumps(m.datos) if m.datos else None)
+                    for m in resultado.marcas
+                ],
             )
             if resultado.reto is not None:
                 con.executemany(
@@ -248,12 +252,15 @@ def marcas(id_ejecucion: int, desde: datetime, hasta: datetime) -> list[Marca]:
     """Marcas que se ven en [desde, hasta): las que empiezan antes de `hasta` y acaban después de `desde`."""
     with _cerrojo:
         filas = _con().execute(
-            """SELECT tipo, instante, fin, precio, precio2, texto FROM marcas
+            """SELECT tipo, instante, fin, precio, precio2, texto, datos FROM marcas
                WHERE ejecucion = ? AND instante < ? AND coalesce(fin, instante) >= ?
                ORDER BY instante""",
             (id_ejecucion, _texto(hasta), _texto(desde)),
         ).fetchall()
-    return [Marca(f["tipo"], _fecha(f["instante"]), _fecha(f["fin"]), f["precio"], f["precio2"], f["texto"]) for f in filas]
+    return [
+        Marca(f["tipo"], _fecha(f["instante"]), _fecha(f["fin"]), f["precio"], f["precio2"], f["texto"], json.loads(f["datos"]) if f["datos"] else None)
+        for f in filas
+    ]
 
 
 def intentos(id_ejecucion: int) -> list[dict]:

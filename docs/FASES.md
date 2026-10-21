@@ -12,6 +12,7 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 | 5 | Backtest de estrategias | Hecha |
 | 6 | Diario de operaciones manuales | Pendiente |
 | 7 | Pulido | Pendiente |
+| 8 | Estudio para vídeos | En curso (spec 010 implementada; falta que la pruebe el usuario) |
 
 ---
 
@@ -120,6 +121,7 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 |---|---|---|
 | 008 | Backtest de estrategias escritas en Python, resultados y modo backtest en el gráfico | Hecha |
 | 009 | Backtest con las reglas de un reto de prop firm: intentos encadenados y % de aprobados | Implementada; falta que la pruebe el usuario |
+| 012 | Estrategias EMA pullback y Fibonacci muy parametrizables, y herramienta Fibonacci del gráfico | Implementada; falta que la pruebe el usuario |
 
 ## Fase 6 · Diario de operaciones manuales
 
@@ -142,3 +144,19 @@ Cada fase tiene una o varias specs en `specs/`. No se empieza una fase sin cerra
 - Exportar trades a CSV.
 - Guardar y retomar sesiones de replay.
 - Lo que haya salido por el camino.
+
+## Fase 8 · Estudio para vídeos
+
+**Objetivo:** que el canal de YouTube del usuario (proyecto `Canal Trading`) pueda generar gráficos didácticos exactos y anotados, reales o inventados, y capturarlos en vídeo sin intervención. Va **en paralelo** a las fases 6 y 7: no depende de ellas.
+
+- Página `/estudio`, separada del replay, que reproduce una escena descrita en JSON con un reloj determinista.
+- Captura en PNG y MP4, 16:9 y 9:16, en modo limpio y en inglés.
+- Pincel y grabación de trazos para dibujar a mano.
+- Después (spec 011): widgets didácticos que no son velas (libro de órdenes, tamaño de posición, curva de capital).
+
+**Hecho cuando:** una escena escrita desde un guion del canal se captura en MP4 sin tocar nada a mano y el usuario la da por buena para un vídeo.
+
+| Spec | Contenido | Estado |
+|---|---|---|
+| 010 | Estudio: escenas en JSON, datos reales (también acciones y ETF de Dukascopy) o inventados, pasos animados, captura y pincel | Implementada; falta que la pruebe el usuario |
+| 011 | Widgets del Estudio: cotización, libro de órdenes con órdenes a mercado y comparación de libros | Implementada; falta que la pruebe el usuario |

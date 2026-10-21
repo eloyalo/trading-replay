@@ -13,7 +13,7 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from trading_replay.backtest.estrategia import TIMEFRAMES, Estrategia, Parametro
+from trading_replay.backtest.estrategia import TIMEFRAMES, Estrategia, Parametro, timeframe_de
 from trading_replay.config import carpeta_estrategias
 
 
@@ -55,7 +55,8 @@ class InfoEstrategia:
             "id": self.id,
             "nombre": self.nombre,
             "descripcion": self.descripcion,
-            "timeframe": self.clase.timeframe if self.clase else None,
+            "timeframe": timeframe_de(self.clase, None) if self.clase else None,
+            "timeframe_elegible": bool(self.clase and "timeframe" in self.clase.parametros),
             "parametros": [p.api(clave) for clave, p in self.clase.parametros.items()] if self.clase else [],
             "ruta": str(self.ruta),
             "huella": self.huella,
@@ -94,6 +95,12 @@ def _validar_clase(clase: type[Estrategia], archivo: str) -> None:
         error(f"Timeframe no válido: {clase.timeframe!r}. Opciones: {', '.join(TIMEFRAMES)}")
     if not isinstance(clase.parametros, dict) or not all(isinstance(p, Parametro) for p in clase.parametros.values()):
         error("`parametros` tiene que ser un diccionario de Parametro(...)")
+    elegible = clase.parametros.get("timeframe")
+    if elegible is not None:
+        if not elegible.opciones or any(o not in TIMEFRAMES for o in elegible.opciones):
+            error(f"El parámetro «timeframe» tiene que traer opciones de: {', '.join(TIMEFRAMES)}")
+        if elegible.defecto not in elegible.opciones:
+            error("El valor por defecto de «timeframe» tiene que estar entre sus opciones")
     if clase.al_cerrar_vela is Estrategia.al_cerrar_vela:
         error("Falta al_cerrar_vela(self, vela)")
     for clave, parametro in clase.parametros.items():

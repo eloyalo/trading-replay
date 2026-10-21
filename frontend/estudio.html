@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudio · Trading Replay</title>
+  <link rel="stylesheet" href="estudio.css">
+</head>
+<body>
+  <!-- Barra del modo manual (spec 010, RF-12 a RF-14). En modo captura y en modo limpio no se ve. -->
+  <header class="barra" id="barra">
+    <a class="titulo" href="/" title="Volver al simulador">Estudio</a>
+    <label class="boton" title="Abrir una escena (.json)">Abrir<input id="abrir" type="file" accept=".json,application/json" hidden></label>
+    <button id="boton-pegar" title="Pegar o editar el JSON de la escena">JSON</button>
+    <span class="separador"></span>
+    <button id="play" title="Play/pausa (Espacio)">▶</button>
+    <input id="posicion" type="range" min="0" max="1" step="0.01" value="0" title="Posición">
+    <span id="tiempo" class="tiempo">0.0 / 0.0 s</span>
+    <select id="aspecto" title="Formato">
+      <option value="16:9">16:9</option>
+      <option value="9:16">9:16</option>
+    </select>
+    <span class="separador"></span>
+    <button id="pincel" aria-pressed="false" title="Pincel: dibuja a mano; el trazo se guarda en la escena (P)">Pincel</button>
+    <button id="deshacer" title="Quitar el último trazo grabado">Deshacer trazo</button>
+    <button id="exportar" title="Descargar la escena con los trazos grabados">Exportar</button>
+    <button id="limpio" title="Modo limpio a pantalla completa para grabarte (F)">Modo limpio</button>
+    <span id="aviso" class="aviso"></span>
+  </header>
+  <div id="marcas" class="marcas" aria-hidden="true"></div>
+  <section id="panel-json" class="panel-json" hidden>
+    <textarea id="json" spellcheck="false" placeholder="Pega aquí la escena (formato 1)"></textarea>
+    <div class="acciones">
+      <button id="aplicar">Aplicar</button>
+      <button id="cerrar-json">Cerrar</button>
+    </div>
+  </section>
+  <main id="escenario" class="escenario">
+    <div id="lienzo" class="lienzo">
+      <div id="grafico" class="grafico"></div>
+      <canvas id="capa" class="capa"></canvas>
+    </div>
+  </main>
+  <script src="vendor/lightweight-charts.standalone.production.js"></script>
+  <script src="calculos.js"></script>
+  <script src="estudio_calculos.js"></script>
+  <script src="estudio.js"></script>
+  <script src="estudio_widgets.js"></script>
+</body>
+</html>

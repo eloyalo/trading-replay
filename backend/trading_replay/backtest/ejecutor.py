@@ -83,6 +83,7 @@ class Marca:
     precio: float | None
     precio2: float | None
     texto: str
+    datos: dict | None = None  # solo la marca `fibonacci` (spec 012): origen, final, retrocesos y extensiones
 
 
 @dataclass
@@ -284,6 +285,9 @@ class Ejecutor:
         if reto:
             for intento in reto.intentos:
                 intento.operaciones = sum(op.intento == intento.numero for op in self.operaciones)
+        for marca in self.marcas:
+            if marca.tipo == "fibonacci" and marca.fin is None:
+                marca.fin = a_fecha(self._fin)  # la figura que nadie cerró llega hasta el final de los datos
         return Resultado(self.operaciones, self.marcas, len(t), total, reloj.perf_counter() - inicio_real, reto)
 
     def _cambiar_dia_reto(self, dia: int) -> None:
@@ -458,8 +462,10 @@ class Ejecutor:
         for orden in stops:
             self.motor.modificar(orden.id, precio)
 
-    def marcar(self, tipo, instante, fin, precio, precio2, texto) -> None:
-        self.marcas.append(Marca(tipo, instante, fin, precio, precio2, texto))
+    def marcar(self, tipo, instante, fin, precio, precio2, texto, datos=None) -> Marca:
+        marca = Marca(tipo, instante, fin, precio, precio2, texto, datos)
+        self.marcas.append(marca)
+        return marca
 
 
 def ejecutar(

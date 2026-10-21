@@ -138,6 +138,7 @@ function crearParametros(e) {
   if (!e || e.error) return;
   if (!e.parametros.length) contenedor.append(crear("p", "nota", "Esta estrategia no tiene parámetros."));
   const guardados = preferencias.leer(`backtest.parametros.${e.id}`, {});
+  const grupos = new Map(); // sección plegable -> su cuadrícula (spec 012, RF-1)
   for (const p of e.parametros) {
     const valor = typeof guardados[p.clave] === typeof p.defecto ? guardados[p.clave] : p.defecto;
     const etiqueta = crear("label", p.tipo === "bool" ? "bt-casilla" : "");
@@ -164,7 +165,20 @@ function crearParametros(e) {
     etiqueta.title = `Por defecto: ${p.defecto}`;
     if (p.tipo === "bool") etiqueta.append(entrada, ` ${p.texto}`);
     else etiqueta.append(p.texto, entrada);
-    contenedor.append(etiqueta);
+    if (!p.grupo) {
+      contenedor.append(etiqueta);
+      continue;
+    }
+    if (!grupos.has(p.grupo)) {
+      const seccion = crear("details", "bt-grupo");
+      const cuadricula = crear("div", "bt-parametros");
+      seccion.append(crear("summary", "", p.grupo), cuadricula);
+      seccion.open = preferencias.leer(`backtest.grupo.${e.id}.${p.grupo}`, false);
+      seccion.addEventListener("toggle", () => preferencias.guardar(`backtest.grupo.${e.id}.${p.grupo}`, seccion.open));
+      contenedor.append(seccion);
+      grupos.set(p.grupo, cuadricula);
+    }
+    grupos.get(p.grupo).append(etiqueta);
   }
 }
 
@@ -784,6 +798,33 @@ function mostrarBarra(aviso = "") {
 function pintarBacktest() {
   pintarMarcasBacktest();
   primitivaBacktest.pedirRepintado?.();
+  $("bt-copiar-fibonacci").hidden = !fibonacciDeLaOperacion();
+}
+
+// La figura de Fibonacci que la estrategia dibujó para la operación que se está viendo (spec 012, RF-24).
+function fibonacciDeLaOperacion() {
+  const g = bt.grafico;
+  if (!g?.op || estado.simbolo !== g.simbolo) return null;
+  return g.tramo.marcas.find((m) => m.tipo === "fibonacci" && m.datos && m.t <= g.op.t_cierre && (m.t_fin ?? Infinity) >= g.op.t_apertura) ?? null;
+}
+
+// "Copiar como dibujo": la figura pasa a los dibujos propios, que se pueden mover, y se guarda como cualquier dibujo.
+function copiarFibonacciComoDibujo() {
+  const marca = fibonacciDeLaOperacion();
+  if (!marca) return;
+  if (dibujo.simbolo !== estado.simbolo) cargarDibujos();
+  const { origen, final } = marca.datos;
+  dibujo.lista.push({
+    id: crypto.randomUUID(),
+    tipo: "fibonacci",
+    puntos: [
+      { t: origen.t, precio: origen.precio },
+      { t: final.t, precio: final.precio },
+    ],
+  });
+  guardarDibujos();
+  repintarDibujos();
+  mostrarBarra("Fibonacci copiado a tus dibujos");
 }
 
 function pintarMarcasBacktest() {
@@ -870,7 +911,17 @@ class PrimitivaBacktest {
       const x1 = xDe(m.t);
       const x2 = m.t_fin == null ? null : xDe(m.t_fin);
       if (x1 === null) continue;
-      this.marcas.push({ ...m, x1, x2, y1: y(m.precio), y2: y(m.precio2) });
+      const marca = { ...m, x1, x2, y1: y(m.precio), y2: y(m.precio2) };
+      if (m.tipo === "fibonacci") {
+        // La figura de la spec 012: del origen al final del impulso, con los niveles que usó la estrategia.
+        const xFinal = m.datos ? xDe(m.datos.final.t) : null;
+        if (xFinal === null || marca.y1 === null || marca.y2 === null) continue;
+        marca.fib = {
+          p1: { x: x1, y: marca.y1, precio: m.datos.origen.precio },
+          p2: { x: xFinal, y: marca.y2, precio: m.datos.final.precio },
+        };
+      }
+      this.marcas.push(marca);
     }
   }
 
@@ -927,7 +978,13 @@ class PrimitivaBacktest {
         const x2 = m.x2 ?? mediaSize.width;
         ctx.strokeStyle = tinta;
         ctx.fillStyle = tinta;
-        if (m.tipo === "rango" && m.y1 !== null && m.y2 !== null) {
+        if (m.tipo === "fibonacci") {
+          // El 0 % (final del impulso) coincide con la extensión 1,0: se dibuja solo una vez.
+          const final = m.datos.extensiones.includes(1) ? [] : [0];
+          const config = { ...configFibonacci(), retrocesos: [...final, ...m.datos.retrocesos, 1], extensiones: m.datos.extensiones, conExtensiones: true };
+          pintarFibonacci(ctx, mediaSize.width, m.fib.p1, m.fib.p2, config, { xFin: x2, tinta, texto: tinta });
+          ctx.font = "11px system-ui, sans-serif";
+        } else if (m.tipo === "rango" && m.y1 !== null && m.y2 !== null) {
           ctx.globalAlpha = 0.12;
           ctx.fillRect(m.x1, Math.min(m.y1, m.y2), x2 - m.x1, Math.abs(m.y2 - m.y1));
           ctx.globalAlpha = 1;
@@ -1023,6 +1080,7 @@ async function prepararBacktest() {
 
   $("bt-anterior").addEventListener("click", () => irAOperacion(bt.grafico.indice - 1));
   $("bt-siguiente").addEventListener("click", () => irAOperacion(bt.grafico.indice + 1));
+  $("bt-copiar-fibonacci").addEventListener("click", copiarFibonacciComoDibujo);
   $("bt-resultados").addEventListener("click", () => abrirVentanaBacktest("resultados"));
   $("bt-salir").addEventListener("click", salirModoBacktest);
   window.addEventListener("keydown", atajoBacktest, true);

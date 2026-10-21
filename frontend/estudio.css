@@ -1,0 +1,84 @@
+/* Estudio (spec 010). La interfaz es la del simulador; el lienzo tiene el tamaño exacto del vídeo. */
+:root {
+  --fondo: #131722;
+  --panel: #1e222d;
+  --borde: #2a2e39;
+  --texto: #d1d4dc;
+  --tenue: #787b86;
+  --acento: #f5b942;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 14px system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--borde);
+  flex-wrap: wrap;
+}
+
+.titulo { font-weight: 600; color: var(--acento); text-decoration: none; margin-right: 8px; }
+.separador { width: 1px; height: 22px; background: var(--borde); }
+.tiempo { font-variant-numeric: tabular-nums; min-width: 110px; color: var(--tenue); }
+.aviso { color: #ef5350; margin-left: auto; max-width: 50%; white-space: pre-line; }
+
+button, select, .boton {
+  background: var(--borde);
+  color: var(--texto);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+button[aria-pressed="true"] { border-color: var(--acento); color: var(--acento); }
+#posicion { flex: 1; min-width: 200px; }
+
+.marcas { position: relative; height: 6px; margin: 0 12px; }
+.marcas span { position: absolute; top: 0; width: 2px; height: 6px; background: var(--acento); }
+
+.panel-json {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  width: min(640px, 90vw);
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  z-index: 10;
+}
+.panel-json textarea { flex: 1; background: var(--fondo); color: var(--texto); font: 12px monospace; border: 1px solid var(--borde); }
+.panel-json[hidden] { display: none; }
+.panel-json .acciones { display: flex; gap: 8px; justify-content: flex-end; }
+
+.escenario { position: relative; height: calc(100% - 60px); overflow: hidden; }
+
+/* Tamaño real del vídeo; en el modo manual se escala para caber en la ventana (estudio.js). */
+.lienzo { position: absolute; top: 0; left: 0; transform-origin: 0 0; overflow: hidden; }
+.grafico, .capa { position: absolute; inset: 0; }
+/* El gráfico crea su propio contexto de apilado para que sus canvas internos no tapen la capa. */
+.grafico { z-index: 0; }
+.capa { z-index: 1; pointer-events: none; }
+.pincel-activo .capa { pointer-events: auto; cursor: crosshair; }
+
+/* Captura (RF-8) y modo limpio (RF-13): solo el lienzo. */
+body.captura .barra, body.captura .marcas, body.captura .panel-json,
+body.limpio .barra, body.limpio .marcas, body.limpio .panel-json { display: none; }
+body.captura .escenario, body.limpio .escenario { height: 100%; }
+body.captura { background: transparent; }

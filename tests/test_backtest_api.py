@@ -4,7 +4,7 @@ Con `datos.serie`, el minuto i (desde las 09:30) abre en 100 + i y cierra en + 0
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -206,3 +206,61 @@ def test_abre_una_base_de_datos_de_la_spec_008(datos, tmp_path):
     [meta] = almacen_bt.listar()
     assert (meta["id"], meta["perfil"], meta["reto"]) == (1, None, None)
     assert almacen_bt.operaciones(1) == [] and almacen_bt.intentos(1) == []
+
+
+FIBO = '''\
+"""Compra y dibuja un Fibonacci."""
+
+from datetime import datetime
+
+from trading_replay.backtest import Estrategia
+
+
+class Fibo(Estrategia):
+    nombre = "Fibo"
+    timeframe = "1m"
+
+    def al_cerrar_vela(self, vela):
+        if self.hora == "09:40":
+            self.marca = self.fibonacci((datetime(2024, 3, 12, 9, 31), 100.0), (datetime(2024, 3, 12, 9, 38), 108.0), retrocesos=(0.5, 0.618), extensiones=(1.618,), texto="Impulso")
+            self.comprar(1, sl_puntos=10, tp_puntos=5)
+        if self.hora == "09:50":
+            self.marca.fin = self.instante
+'''
+
+
+def test_la_marca_de_fibonacci_se_guarda_y_se_sirve_con_el_reloj_del_grafico(entorno):
+    (entorno / "fibo.py").write_text(FIBO)
+    ok(cliente.post("/api/backtests", json={"estrategia": "fibo", "simbolo": "NQ"}))
+    trabajos.esperar(30)
+    id_ejecucion = ok(cliente.get("/api/backtests/en-marcha"))["ejecucion"]
+    tramo = ok(cliente.get(f"/api/backtests/{id_ejecucion}/tramo", params={"desde": "2024-03-12T09:45", "hasta": "2024-03-12T12:00"}))
+    [fibo] = [m for m in tramo["marcas"] if m["tipo"] == "fibonacci"]  # empieza a las 9:31 pero dura hasta las 9:50
+    assert fibo["texto"] == "Impulso" and fibo["datos"]["retrocesos"] == [0.5, 0.618] and fibo["datos"]["extensiones"] == [1.618]
+    assert (fibo["datos"]["origen"]["precio"], fibo["datos"]["final"]["precio"]) == (100.0, 108.0)
+    # Los instantes salen como en las demás marcas: la hora ET como si fuera UTC.
+    assert fibo["datos"]["origen"]["t"] == int(datetime(2024, 3, 12, 9, 31, tzinfo=timezone.utc).timestamp())
+    assert fibo["t"] == fibo["datos"]["origen"]["t"] and fibo["t_fin"] > fibo["datos"]["final"]["t"]
+    # Las marcas que no son de Fibonacci no llevan datos.
+    assert all(m["datos"] is None for m in tramo["marcas"] if m["tipo"] != "fibonacci")
+
+
+def test_una_base_de_datos_sin_la_columna_datos_de_las_marcas_se_migra(datos):
+    import sqlite3
+
+    from trading_replay.backtest import almacen_bt
+
+    ruta = almacen_bt.ruta()
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    vieja = sqlite3.connect(ruta)
+    vieja.executescript(
+        """
+        CREATE TABLE marcas (ejecucion INTEGER NOT NULL, tipo TEXT NOT NULL, instante TEXT NOT NULL, fin TEXT,
+            precio REAL, precio2 REAL, texto TEXT);
+        """
+    )
+    vieja.close()
+    almacen_bt._conexion = None
+    almacen_bt.listar()
+    columnas = {f[1] for f in almacen_bt._con().execute("PRAGMA table_info(marcas)")}
+    assert "datos" in columnas

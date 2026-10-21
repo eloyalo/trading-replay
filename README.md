@@ -8,6 +8,8 @@ Simulador local de trading para practicar sobre datos históricos de NQ (Nasdaq 
 - Simulación de retos de prop firm (Topstep y DayTraders): pérdida máxima, límite diario, consistencia, objetivo y días mínimos, aplicados en el momento.
 - Backtest de estrategias escritas en Python: se pasan por el histórico con el mismo motor de órdenes, con % de acierto, profit factor, drawdown, desglose por año, sesión y día, y las operaciones una a una en el gráfico. También con las reglas de un reto de prop firm, para ver qué % de intentos aprobaría.
 
+- Estudio para vídeos (`/estudio.html`): gráficos didácticos descritos en JSON (velas reales de NQ, ES, oro o acciones y ETF de Dukascopy, o velas escritas a mano), con niveles, zonas, flechas, pincel y cámara que aparecen a su tiempo, y captura en PNG o MP4 (`uv run trading-replay estudio capturar escena.json`). Formato de escena en [`docs/specs/010-estudio/`](docs/specs/010-estudio/plan.md).
+
 Todo corre en local. Está en desarrollo: el estado de cada fase está en [`docs/FASES.md`](docs/FASES.md).
 
 ## Requisitos
